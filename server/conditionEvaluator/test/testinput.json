@@ -1,0 +1,21 @@
+{
+  "req":{
+    "ip":"127.0.0.1:58810",
+    "protocol":"HTTP/1.1",
+    "method":"GET","path":"/testpath",
+    "param":{
+      "a":["b"],
+      "c":["d"]
+    },
+    "header":{
+      "Accept-Encoding":["gzip"],
+      "Authorization":["Basic dGVzdFVzZXI6Z29vZCZiYWQ="],
+      "User-Agent":["Go-http-client/1.1"]
+    },
+    "time":"2022-12-02T11:17:27.91208-08:00"
+  },
+  "subject":{
+    "type":"basic",
+    "sub":"testUser"
+  }
+}

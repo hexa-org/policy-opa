@@ -1,0 +1,279 @@
+{
+  "policies": [
+    {
+      "id": "TestBasicCanary",
+      "meta": {
+        "version": "0.1",
+        "date": "2021-08-01 21:32:44 UTC",
+        "description": "Access enabling user self service for users with role",
+        "applicationId": "CanaryBank1",
+        "layer": "Browser"
+      },
+      "subject": {
+        "type": "basic",
+        "providerId": "myGoogleIDP"
+      },
+      "actions": [
+        {
+          "name": "createProfileBasic",
+          "actionUri": "ietf:http:POST:/testpath*"
+        },
+        { "name": "editProfileBasic",
+          "actionUri": "ietf:http:PUT:/testpath*"
+        },
+        { "name": "getProfileBasic",
+          "actionUri": "ietf:http:GET:/testpath*"
+        }
+      ],
+      "object": {
+        "assetId": "CanaryProfileService",
+        "pathSpec": "/testpath*"
+      }
+    },
+    {
+      "id": "TestBasicCanaryCondition",
+      "meta": {
+        "version": "0.1",
+        "date": "2021-08-01 21:32:44 UTC",
+        "description": "Access enabling user self service for users with role with condition",
+        "applicationId": "CanaryBank1",
+        "layer": "Browser"
+      },
+      "subject": {
+        "type": "basic",
+        "providerId": "myGoogleIDP"
+      },
+      "actions": [
+        {
+          "name": "createProfileBasic",
+          "actionUri": "ietf:http:POST:/testpath*"
+        },
+        { "name": "editProfileBasic",
+          "actionUri": "ietf:http:PUT:/testpath*"
+        },
+        { "name": "getProfileBasic",
+          "actionUri": "ietf:http:GET:/testpath*"
+        }
+      ],
+      "condition": {
+        "rule": "req.ip sw 127.0.0.1",
+        "action": "allow"
+      },
+      "object": {
+        "assetId": "CanaryProfileService",
+        "pathSpec": "/testpath*"
+      }
+    },
+    {
+      "id": "TestJwtCanary",
+      "meta": {
+        "version": "0.1",
+        "date": "2021-08-01 21:32:44 UTC",
+        "description": "Access enabling user self service for users with role",
+        "applicationId": "CanaryBank1",
+        "layer": "Browser"
+      },
+      "subject": {
+        "type": "jwt",
+        "providerId": "myTestIDP",
+        "config": {
+          "iss": "testIssuer",
+          "aud": "testAudience"
+        }
+      },
+      "actions": [
+        {
+          "name": "createProfileJWT",
+          "actionUri": "ietf:http:POST:/testpath*"
+        },
+        { "name": "editProfileJWT",
+          "actionUri": "ietf:http:PUT:/testpath*",
+          "exclude" : true
+        },
+        { "name": "getProfileJWT",
+          "actionUri": "ietf:http:GET:/testpath*"
+        }
+      ],
+      "object": {
+        "assetId": "CanaryProfileService",
+        "pathSpec": "/testpath*"
+      }
+    },
+    {
+      "id": "TestIPMaskCanary",
+      "meta": {
+        "version": "0.1",
+        "date": "2021-08-01 21:32:44 UTC",
+        "description": "Access enabling user self service for users with role",
+        "applicationId": "CanaryBank1",
+        "layer": "Browser"
+      },
+      "subject": {
+        "type": "net",
+        "providerId": "myTestIDP",
+        "cidr" : "127.0.0.1/24"
+      },
+      "actions": [
+        {
+          "name": "createProfileIP",
+          "actionUri": "ietf:http:POST:/testpath*"
+        },
+        { "name": "editProfileIP",
+          "actionUri": "ietf:http:PUT:/testpath*",
+          "exclude": true
+        },
+        { "name": "getProfileIP",
+          "actionUri": "ietf:http:GET:/testpath*"
+        }
+      ],
+      "condition": {
+        "rule": "req.ip sw 127 and req.method eq GET",
+        "action": "allow"
+      },
+      "object": {
+        "assetId": "CanaryProfileService",
+        "pathSpec": "/testpath*"
+      }
+    },
+    {
+      "id": "TestIPMaskCanaryPOST",
+      "meta": {
+        "version": "0.1",
+        "date": "2021-08-01 21:32:44 UTC",
+        "description": "Access enabling user self service for users with role",
+        "applicationId": "CanaryBank1",
+        "layer": "Browser"
+      },
+      "subject": {
+        "type": "net",
+        "providerId": "myTestIDP",
+        "cidr" : "127.0.0.1/24"
+      },
+      "actions": [
+        {
+          "name": "createProfileIP",
+          "actionUri": "ietf:http:POST:/testpath*"
+        },
+        { "name": "editProfileIP",
+          "actionUri": "ietf:http:PUT:/testpath*",
+          "exclude": true
+        },
+        { "name": "getProfileIP",
+          "actionUri": "ietf:http:GET:/testpath*"
+        }
+      ],
+      "condition": {
+        "rule": "req.ip sw 127 and req.method eq POST",
+        "action": "allow"
+      },
+      "object": {
+        "assetId": "CanaryProfileService",
+        "pathSpec": "/testpath*"
+      }
+    },
+    {
+      "id": "TestIPMaskCanaryNotDelete",
+      "meta": {
+        "version": "0.1",
+        "date": "2021-08-01 21:32:44 UTC",
+        "description": "Access enabling user self service for users with role",
+        "applicationId": "CanaryBank1",
+        "layer": "Browser"
+      },
+      "subject": {
+        "type": "net",
+        "providerId": "myTestIDP",
+        "cidr" : "127.0.0.1/24"
+      },
+      "actions": [
+        {
+          "name": "createProfileIP",
+          "actionUri": "ietf:http:POST:/testpath*"
+        },
+        { "name": "editProfileIP",
+          "actionUri": "ietf:http:PUT:/testpath*",
+          "exclude": true
+        },
+        { "name": "getProfileIP",
+          "actionUri": "ietf:http:GET:/testpath*"
+        }
+      ],
+      "condition": {
+        "rule": "req.ip sw 127 and req.method NE DELETE",
+        "action": "allow"
+      },
+      "object": {
+        "assetId": "CanaryProfileService",
+        "pathSpec": "/testpath*"
+      }
+    },
+    {
+      "id": "TestJwtRole",
+      "meta": {
+        "version": "0.1",
+        "date": "2021-08-01 21:32:44 UTC",
+        "description": "Access enabling user self service for users with role",
+        "applicationId": "CanaryBank1",
+        "layer": "Browser"
+      },
+      "subject": {
+        "type": "jwt",
+        "providerId": "myTestIDP",
+        "config": {
+          "iss": "testIssuer",
+          "aud": "testAudience"
+        },
+        "members" : ["BaSicBob"],
+        "role": "abc"
+      },
+      "actions": [
+        {
+          "name": "createProfileJwtRole",
+          "actionUri": "ietf:http:POST:/testpath*"
+        },
+        { "name": "getProfileJwtRole",
+          "actionUri": "ietf:http:GET:/testpath*"
+        }
+      ],
+      "object": {
+        "assetId": "CanaryProfileService",
+        "pathSpec": "/testpath*"
+      }
+    },
+    {
+      "id": "TestJwtMember",
+      "meta": {
+        "version": "0.1",
+        "date": "2021-08-01 21:32:44 UTC",
+        "description": "Access enabling user self service for users with role",
+        "applicationId": "CanaryBank1",
+        "layer": "Browser"
+      },
+      "subject": {
+        "type": "jwt",
+        "providerId": "myTestIDP",
+        "config": {
+          "iss": "testIssuer",
+          "aud": "testAudience"
+        },
+        "members": ["JwtAlice","BasicBoB"]
+      },
+      "actions": [
+        {
+          "name": "createProfileJwtMember",
+          "actionUri": "ietf:http:POST:/testpath*"
+        },
+        { "name": "editProfileJwtMember",
+          "actionUri": "ietf:http:PUT:/testpath*"
+        },
+        { "name": "getProfileJwtMember",
+          "actionUri": "ietf:http:GET:/testpath*"
+        }
+      ],
+      "object": {
+        "assetId": "CanaryProfileService",
+        "pathSpec": "/testpath*"
+      }
+    }
+  ]
+}
