@@ -6,7 +6,6 @@ require (
 	github.com/golang-jwt/jwt v3.2.2+incompatible
 	github.com/gorilla/mux v1.8.0
 	github.com/hexa-org/policy-mapper v0.0.0-20230124231610-00efbb545b4a
-	github.com/hexa-org/policy-orchestrator v0.1.5
 	github.com/open-policy-agent/opa v0.47.1
 	github.com/stretchr/testify v1.8.1
 	github.com/tidwall/gjson v1.14.4

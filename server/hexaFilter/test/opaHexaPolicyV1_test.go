@@ -7,7 +7,7 @@ import (
 	"fmt"
 	"github.com/hexa-org/policy-opa/server/conditionEvaluator"
 	"github.com/hexa-org/policy-opa/server/hexaFilter"
-	"github.com/hexa-org/policy-orchestrator/pkg/websupport"
+	"github.com/hexa-org/policy-opa/tests/utils"
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/open-policy-agent/opa/rego"
 	"github.com/open-policy-agent/opa/storage/inmem"
@@ -33,7 +33,7 @@ const dataV1Path = "bundle/bundle_test/data-V1.json"
 
 func TestIdqlBasic(t *testing.T) {
 
-	server := GetUpMockServer("verifyme", "")
+	server := utils.GetUpMockServer("verifyme", "")
 
 	client := &http.Client{Timeout: time.Second * 10}
 
@@ -67,17 +67,17 @@ func TestIdqlBasic(t *testing.T) {
 	assert.Contains(t, allowSet, "TestIPMaskCanary")
 	assert.Contains(t, allowSet, "TestIPMaskCanaryNotDelete")
 	assert.NotContains(t, allowSet, "TestIPMaskCanaryPOST")
-	websupport.Stop(server)
+	utils.StopServer(server)
 
 }
 
 func TestIdqlJwt(t *testing.T) {
 	key := "sercrethatmaycontainch@r$32chars!"
-	server := GetUpMockServer(key, "")
+	server := utils.GetUpMockServer(key, "")
 
 	client := &http.Client{Timeout: time.Minute * 2}
 
-	toknstr, err := GenerateBearerToken(key, "TestUser", time.Now().Add(time.Minute*1))
+	toknstr, err := utils.GenerateBearerToken(key, "TestUser", time.Now().Add(time.Minute*1))
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -108,12 +108,12 @@ func TestIdqlJwt(t *testing.T) {
 	assert.True(t, len(allowSet) == 3, "confirm 3 matches")
 	assert.Contains(t, allowSet, "TestJwtCanary")
 
-	websupport.Stop(server)
+	utils.StopServer(server)
 }
 
 func TestIdqlIp(t *testing.T) {
 	key := "sercrethatmaycontainch@r$32chars!"
-	server := GetUpMockServer(key, "")
+	server := utils.GetUpMockServer(key, "")
 
 	client := &http.Client{Timeout: time.Minute * 2}
 
@@ -145,7 +145,7 @@ func TestIdqlIp(t *testing.T) {
 	assert.Equal(t, 6, len(actionRights))
 	assert.Equal(t, 2, len(allowSet))
 
-	websupport.Stop(server)
+	utils.StopServer(server)
 }
 
 /*
@@ -156,7 +156,7 @@ a delete which should also be refused as it is not explicitly enabled.
 */
 func TestIdqlIpActions(t *testing.T) {
 	key := "sercrethatmaycontainch@r$32chars!"
-	server := GetUpMockServer(key, "")
+	server := utils.GetUpMockServer(key, "")
 
 	client := &http.Client{Timeout: time.Minute * 2}
 
@@ -241,16 +241,16 @@ func TestIdqlIpActions(t *testing.T) {
 	assert.Equal(t, 0, len(actionRights))
 	assert.Equal(t, 0, len(allowSet))
 
-	websupport.Stop(server)
+	utils.StopServer(server)
 }
 
 func TestIdqlMember(t *testing.T) {
 	key := "sercrethatmaycontainch@r$32chars!"
-	server := GetUpMockServer(key, "")
+	server := utils.GetUpMockServer(key, "")
 	fmt.Println("\nGET Test with token and role")
 	client := &http.Client{Timeout: time.Minute * 2}
 
-	toknstr, err := GenerateBearerToken(key, "JwtAlice", time.Now().Add(time.Minute*1))
+	toknstr, err := utils.GenerateBearerToken(key, "JwtAlice", time.Now().Add(time.Minute*1))
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -279,16 +279,16 @@ func TestIdqlMember(t *testing.T) {
 	assert.Equal(t, 4, len(allowSet))
 	assert.Contains(t, allowSet, "TestJwtMember")
 
-	websupport.Stop(server)
+	utils.StopServer(server)
 }
 
 func TestIdqlRole(t *testing.T) {
 	key := "sercrethatmaycontainch@r$32chars!"
-	server := GetUpMockServer(key, "")
+	server := utils.GetUpMockServer(key, "")
 	fmt.Println("\nGET Test with token and role")
 	client := &http.Client{Timeout: time.Minute * 2}
 
-	toknstr, err := GenerateBearerToken(key, "BasicBob", time.Now().Add(time.Minute*1))
+	toknstr, err := utils.GenerateBearerToken(key, "BasicBob", time.Now().Add(time.Minute*1))
 	if err != nil {
 		log.Fatalln(err)
 	}
@@ -318,7 +318,7 @@ func TestIdqlRole(t *testing.T) {
 	assert.Contains(t, allowSet, "TestJwtRole")
 	assert.Contains(t, allowSet, "TestJwtMember")
 
-	websupport.Stop(server)
+	utils.StopServer(server)
 }
 
 func RunRego(inputByte []byte, regoPath string, dataPath string) rego.ResultSet {
