@@ -91,8 +91,8 @@ func PrepareSubjectInfo(r *http.Request) (*SubjectInfo, error) {
 			}
 		} else {
 			// This is done for diagnostic purposes
-			info.Type = strings.Split(authz, " ")[0]
-			log.Println("Unknown authorization type: " + info.Type)
+			msg := fmt.Sprintf("Unsupported authorization type: %s", parts[0])
+			log.Println(msg)
 		}
 	} else {
 		info.Type = "Anonymous"
