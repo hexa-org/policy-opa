@@ -91,7 +91,9 @@ func PrepareSubjectInfo(r *http.Request) (*SubjectInfo, error) {
 			}
 		} else {
 			// This is done for diagnostic purposes
-			msg := fmt.Sprintf("Unsupported authorization type: %s", parts[0])
+			// Sanitize the message
+			msg := "Unsupported authorization type:" +
+				strings.Replace(strings.Replace(parts[0], "\n", "", -1), "\r", "", -1)
 			log.Println(msg)
 		}
 	} else {
