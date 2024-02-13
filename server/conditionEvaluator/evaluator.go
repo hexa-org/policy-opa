@@ -3,11 +3,16 @@ package conditionEvaluator
 import (
 	"errors"
 	"fmt"
-	"github.com/hexa-org/policy-mapper/policySupport/conditions"
-	"github.com/hexa-org/policy-mapper/policySupport/filter"
-	"github.com/tidwall/gjson"
+
 	"strconv"
 	"strings"
+
+	"github.com/hexa-org/policy-mapper/pkg/hexapolicy/conditions"
+	filter "github.com/hexa-org/policy-mapper/pkg/hexapolicy/conditions/parser"
+
+	// "github.com/hexa-org/policy-mapper/policySupport/conditions"
+	// "github.com/hexa-org/policy-mapper/policySupport/filter"
+	"github.com/tidwall/gjson"
 )
 
 /*
