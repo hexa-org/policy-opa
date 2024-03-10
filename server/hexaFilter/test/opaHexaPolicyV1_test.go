@@ -5,6 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"os"
+
 	"github.com/hexa-org/policy-opa/server/conditionEvaluator"
 	"github.com/hexa-org/policy-opa/server/hexaFilter"
 	"github.com/hexa-org/policy-opa/tests/utils"
@@ -14,10 +19,6 @@ import (
 	"github.com/open-policy-agent/opa/types"
 	"github.com/open-policy-agent/opa/util"
 	"github.com/stretchr/testify/assert"
-	"io"
-	"log"
-	"net/http"
-	"os"
 
 	"strings"
 	"testing"
@@ -25,10 +26,10 @@ import (
 )
 
 /*
-This test suite tests Hexa IDQL Support with OPA which is implemented in Rego (bundle/hexaPolicyV1.rego)
+This test suite tests Hexa IDQL Support with OPA which is implemented in Rego (bundle/hexaPolicyV2.rego)
 */
 
-const regoV1Path = "bundle/hexaPolicyV1.rego"
+const regoV1Path = "bundle/hexaPolicyV2.rego"
 const dataV1Path = "bundle/bundle_test/data-V1.json"
 
 func TestIdqlBasic(t *testing.T) {
@@ -186,7 +187,7 @@ func TestIdqlIpActions(t *testing.T) {
 	assert.Equal(t, 12, len(actionRights))
 	assert.Equal(t, 4, len(allowSet))
 
-	//-----------------------
+	// -----------------------
 	// Test #2, A PUT requests that should be passed based on TeestBasicCanary match
 	fmt.Println("\nPUT Test Should be allowed based on TestBasicCanary rather than TestIPCanary")
 	dummy := bytes.NewBufferString("Hello world")
@@ -214,7 +215,7 @@ func TestIdqlIpActions(t *testing.T) {
 	assert.Equal(t, 6, len(actionRights))
 	assert.Equal(t, 2, len(allowSet))
 
-	//-----------------------
+	// -----------------------
 	// Test #3, A PUT requests that should be passed based on TeestBasicCanary match
 	fmt.Println("\nPUT Test without Basic Auth - Should fail as PUT not allowed for TestIPMaskCanary")
 	dummy = bytes.NewBufferString("Hello world")
@@ -350,7 +351,7 @@ func RunRego(inputByte []byte, regoPath string, dataPath string) rego.ResultSet 
 
 		rego.Query("data.hexaPolicy"),
 		rego.Package("hexaPolicy"),
-		rego.Module("bundle/hexaPolicyV1.rego", regoString),
+		rego.Module("bundle/hexaPolicyV2.rego", regoString),
 		rego.Input(&input),
 		rego.Store(store),
 		rego.Function2(
@@ -367,7 +368,7 @@ func RunRego(inputByte []byte, regoPath string, dataPath string) rego.ResultSet 
 				if err := ast.As(a.Value, &expression); err != nil {
 					return nil, err
 				}
-				//expression = a.Value.String()
+				// expression = a.Value.String()
 				input = b.Value.String()
 
 				res, err := conditionEvaluator.Evaluate(expression, input)
@@ -375,7 +376,7 @@ func RunRego(inputByte []byte, regoPath string, dataPath string) rego.ResultSet 
 				return ast.BooleanTerm(res), err
 
 			}),
-		//rego.Trace(true),
+		// rego.Trace(true),
 	)
 
 	resultSet, err := regoHandle.Eval(ctx)
@@ -383,7 +384,7 @@ func RunRego(inputByte []byte, regoPath string, dataPath string) rego.ResultSet 
 		log.Fatalln("Error evaluating rego: " + err.Error())
 	}
 
-	//rego.PrintTraceWithLocation(os.Stdout, regoHandle)
+	// rego.PrintTraceWithLocation(os.Stdout, regoHandle)
 
 	ctx.Done()
 

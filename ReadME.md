@@ -8,8 +8,8 @@ support. This integration includes:
 * hexaFilter plugin which evaluates an IDQL condition filter against provided input (see below)
 * hexaOpa server which bundles hexaFilter as an OPA executable
 
-_Note:  the current Policy Orchestrator and opaTools integration is slightly out of sync with this project (I am using an
-older version).  The relevant notes here are to aid with integration with the current Policy-Orchestrator project!!_
+> [!Note]
+> This project is intended to work with the [Hexa Policy Mapper Project](https://github.com/hexa-org/policy-mapper).
 
 ## Extending OPA Server
 To build the new version of OPA with the hexaPlugin included perform the following:
@@ -25,7 +25,7 @@ go build -o hexaOpa
 The `hexaFilter` evaluates input structures provided by `client/opa/opaTools` request builder using
 a condition clause in IDQL in the Hexa Rego script.
 
-Exmple IDQL with Condition Statement:
+Example IDQL with Condition Statement:
 ```json
     {
       "id": "TestIPMaskCanaryPOST",
