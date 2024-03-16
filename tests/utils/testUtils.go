@@ -4,15 +4,16 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/golang-jwt/jwt"
-	"github.com/gorilla/mux"
-	opaTools "github.com/hexa-org/policy-opa/client/opa"
 	"log"
 	"net"
 	"net/http"
 	"os"
 	"strconv"
 	"time"
+
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/gorilla/mux"
+	opaTools "github.com/hexa-org/policy-opa/client/opa"
 )
 
 /*
@@ -46,10 +47,10 @@ func GetUpMockServer(key string, path string) *http.Server {
 
 func GenerateBearerToken(key string, subject string, expires time.Time) (string, error) {
 	claims := &opaTools.HexaClaims{
-		&jwt.StandardClaims{
+		&jwt.RegisteredClaims{
 			Issuer:    "testIssuer",
-			Audience:  "testAudience",
-			ExpiresAt: expires.Unix(),
+			Audience:  []string{"testAudience"},
+			ExpiresAt: &jwt.NumericDate{expires},
 			Subject:   subject,
 		},
 		"bearer abc",
@@ -141,13 +142,13 @@ func CreateServer(addr string, handlers func(x *mux.Router), options Options) *h
 	}
 
 	router := mux.NewRouter()
-	//router.Use(metricssupport.MetricsMiddleware)
+	// router.Use(metricssupport.MetricsMiddleware)
 	router.HandleFunc("/health",
 		func(w http.ResponseWriter, r *http.Request) {
 			HealthHandlerFunctionWithChecks(w, r, checks)
 		},
 	).Methods("GET")
-	//router.Path("/metrics").Handler(metricssupport.MetricsHandler())
+	// router.Path("/metrics").Handler(metricssupport.MetricsHandler())
 	router.StrictSlash(true)
 	handlers(router)
 	server := http.Server{

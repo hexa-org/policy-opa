@@ -3,12 +3,13 @@ package opaTools
 import (
 	"errors"
 	"fmt"
-	"github.com/golang-jwt/jwt"
 	"log"
 	"net/http"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type ReqParams struct {
@@ -18,20 +19,20 @@ type ReqParams struct {
 	Path       string              `json:"path"`
 	QueryParam map[string][]string `json:"param"`
 	Header     map[string][]string `json:"header,omitempty"`
-	Time       time.Time           `json:"time"` //Unix time
+	Time       time.Time           `json:"time"` // Unix time
 }
 
 type SubjectInfo struct {
 	ProvId    string                 `json:"provId,omitempty"`
 	Roles     []string               `json:"roles,omitempty"`
 	Claims    map[string]interface{} `json:"claims,omitempty"`
-	Expires   int64                  `json:"expires,omitempty"`
+	Expires   time.Time              `json:"expires,omitempty"`
 	Type      string                 `json:"type,omitempty"`
 	Sub       string                 `json:"sub,omitempty"`
 	Issuer    string                 `json:"iss,omitempty"`
-	Audience  string                 `json:"aud,omitempty"`
-	IssuedAt  int64                  `json:"iat,omitempty"` //Unix time
-	NotBefore int64                  `json:"nbf,omitempty"`
+	Audience  []string               `json:"aud,omitempty"`
+	IssuedAt  time.Time              `json:"iat,omitempty"` // Unix time
+	NotBefore time.Time              `json:"nbf,omitempty"`
 }
 
 type OpaInfo struct {
@@ -46,7 +47,7 @@ type OpaInput struct {
 }
 
 type HexaClaims struct {
-	*jwt.StandardClaims
+	*jwt.RegisteredClaims
 	Roles string `json:"roles"`
 }
 
@@ -107,10 +108,10 @@ func (info *SubjectInfo) MapJwtClaims(claims HexaClaims, tknType string) {
 	info.Type = tknType
 	info.Sub = claims.Subject
 	info.Audience = claims.Audience
-	info.NotBefore = claims.NotBefore
-	info.IssuedAt = claims.IssuedAt
+	info.NotBefore = claims.NotBefore.Time
+	info.IssuedAt = claims.IssuedAt.Time
 	info.Issuer = claims.Issuer
-	info.Expires = claims.ExpiresAt
+	info.Expires = claims.ExpiresAt.Time
 
 	roleStr := claims.Roles
 	info.Roles = strings.Split(strings.ToLower(roleStr), " ")
