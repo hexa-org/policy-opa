@@ -1,17 +1,22 @@
 package main
 
+// THis code built based on: https://www.openpolicyagent.org/docs/latest/extensions/
+
 import (
 	"fmt"
+	"os"
+
 	"github.com/hexa-org/policy-opa/server/conditionEvaluator"
 	"github.com/hexa-org/policy-opa/server/hexaFilter"
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/open-policy-agent/opa/cmd"
 	"github.com/open-policy-agent/opa/rego"
 	"github.com/open-policy-agent/opa/types"
-	"os"
 )
 
 func main() {
+	fmt.Println("Hexa extended OPA Server")
+	fmt.Println("  registering plugin " + hexaFilter.PluginName)
 	rego.RegisterBuiltin2(
 		&rego.Function{
 			Name:             hexaFilter.PluginName,
@@ -33,6 +38,7 @@ func main() {
 			return ast.BooleanTerm(res), err
 
 		})
+
 	if err := cmd.RootCommand.Execute(); err != nil {
 		fmt.Println(err)
 		os.Exit(1)
