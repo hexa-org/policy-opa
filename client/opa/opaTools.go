@@ -108,10 +108,19 @@ func (info *SubjectInfo) MapJwtClaims(claims HexaClaims, tknType string) {
 	info.Type = tknType
 	info.Sub = claims.Subject
 	info.Audience = claims.Audience
-	info.NotBefore = claims.NotBefore.Time
-	info.IssuedAt = claims.IssuedAt.Time
+	nbf := claims.NotBefore
+	if nbf != nil {
+		info.NotBefore = nbf.Time
+	}
+	iat := claims.IssuedAt
+	if iat != nil {
+		info.IssuedAt = iat.Time
+	}
 	info.Issuer = claims.Issuer
-	info.Expires = claims.ExpiresAt.Time
+	eat := claims.ExpiresAt
+	if eat != nil {
+		info.Expires = eat.Time
+	}
 
 	roleStr := claims.Roles
 	info.Roles = strings.Split(strings.ToLower(roleStr), " ")

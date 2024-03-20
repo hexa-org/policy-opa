@@ -3,15 +3,16 @@ package test
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/hexa-org/policy-opa/client/opa"
-	"github.com/hexa-org/policy-opa/tests/utils"
-	"github.com/stretchr/testify/assert"
 	"io"
 	"log"
 	"net/http"
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/hexa-org/policy-opa/client/opa"
+	"github.com/hexa-org/policy-opa/tests/utils"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestAnonymous(t *testing.T) {
@@ -82,7 +83,7 @@ func TestJwtAuth(t *testing.T) {
 
 	client := &http.Client{Timeout: time.Minute * 2}
 
-	toknstr, err := utils.GenerateBearerToken(key, "TestUser", time.Now().Add(time.Minute*1))
+	toknstr, err := utils.GenerateBearerToken(key, "TestUser", time.Now().Add(time.Minute*2))
 	if err != nil {
 		log.Fatalln(err)
 	}
