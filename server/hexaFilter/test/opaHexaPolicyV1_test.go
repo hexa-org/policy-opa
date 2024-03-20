@@ -289,7 +289,7 @@ func TestIdqlRole(t *testing.T) {
 	fmt.Println("\nGET Test with token and role")
 	client := &http.Client{Timeout: time.Minute * 2}
 
-	toknstr, err := utils.GenerateBearerToken(key, "BasicBob", time.Now().Add(time.Minute*1))
+	toknstr, err := utils.GenerateBearerToken(key, "BasicBob", time.Now().Add(time.Minute*5))
 	if err != nil {
 		log.Fatalln(err)
 	}
