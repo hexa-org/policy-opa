@@ -22,6 +22,8 @@ services:
     container_name: hexa-opa-server
     ports:
       - "8887:8887"
+    depends_on:
+      - bundle-server
     command: /app/hexaOpa run --server --addr :8887 --log-level debug -c /home/config/config.yaml
     environment:
       # These environment values are referenced in ./deployments/hexaOpaServer/config/config.yaml

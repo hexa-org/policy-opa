@@ -20,7 +20,7 @@ import (
 This is a mock server that simply returns the http request infor as an OPA input structure to the requesting client.
 Main purpose is to test how OpaInput works against http.Request
 */
-func GetUpMockServer(key string, path string) *http.Server {
+func SetUpMockServer(key string, path string) *http.Server {
 	err := os.Setenv("OPATOOLS_JWTVERIFYKEY", key)
 	if err != nil {
 		log.Fatalln(err)

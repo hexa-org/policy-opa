@@ -17,7 +17,7 @@ import (
 
 func TestAnonymous(t *testing.T) {
 
-	server := utils.GetUpMockServer("verifymenow", "")
+	server := utils.SetUpMockServer("verifymenow", "")
 
 	resp, err := http.Get(fmt.Sprintf("http://%s/testpath?a=b&c=d", server.Addr))
 	if err != nil {
@@ -44,7 +44,7 @@ func TestAnonymous(t *testing.T) {
 
 func TestBasicAuth(t *testing.T) {
 
-	server := utils.GetUpMockServer("verifyme", "")
+	server := utils.SetUpMockServer("verifyme", "")
 
 	client := &http.Client{Timeout: time.Second * 10}
 
@@ -79,7 +79,7 @@ func TestBasicAuth(t *testing.T) {
 
 func TestJwtAuth(t *testing.T) {
 	key := "sercrethatmaycontainch@r$32chars!"
-	server := utils.GetUpMockServer(key, "")
+	server := utils.SetUpMockServer(key, "")
 
 	client := &http.Client{Timeout: time.Minute * 2}
 
@@ -122,7 +122,7 @@ func TestJwtAuth(t *testing.T) {
 
 func TestExpiredJwtAuth(t *testing.T) {
 	key := "sercrethatmaycontainch@r$32chars!"
-	server := utils.GetUpMockServer(key, "")
+	server := utils.SetUpMockServer(key, "")
 
 	client := &http.Client{Timeout: time.Minute * 2}
 
