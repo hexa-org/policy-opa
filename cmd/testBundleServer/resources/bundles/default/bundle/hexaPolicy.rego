@@ -163,5 +163,21 @@ conditionMatch(policy, _) if {
 
 conditionMatch(policy, inreq) if {
 	policy.condition
+    not policy.condition.action  # Default is to allow
 	hexaFilter(policy.condition.rule, inreq) # HexaFilter evaluations the rule for a match against input
 }
+
+conditionMatch(policy, inreq) if {
+	policy.condition
+    action(policy.condition.action)  # if defined, action must be "allow"
+	hexaFilter(policy.condition.rule, inreq) # HexaFilter evaluations the rule for a match against input
+}
+
+conditionMatch(policy, inreq) if {
+    # If action is deny, then hexaFilter must be false
+	policy.condition
+    not action(policy.condition.action)
+	not hexaFilter(policy.condition.rule, inreq) # HexaFilter evaluations the rule for a match against input
+}
+
+action(val) if lower(val) == "allow"
