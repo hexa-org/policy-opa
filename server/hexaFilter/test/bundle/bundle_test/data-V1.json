@@ -96,7 +96,7 @@
       },
       "subject": {
         "comment": "any used, but the condition is what restricts subjects",
-        "members": ["any"]
+        "members": ["net:127.0.0.1/24"]
       },
       "actions": [
         {
@@ -110,7 +110,7 @@
         }
       ],
       "condition": {
-        "rule": "req.ip sw 127. and req.method eq GET",
+        "rule": "req.method eq GET",
         "action": "allow"
       },
       "object": {
@@ -125,7 +125,7 @@
         "policyId": "TestIPMaskCanaryPOST"
       },
       "subject": {
-        "members": ["any"]
+        "members": ["net:192.1.0.1/24"]
       },
       "actions": [
         {
@@ -138,10 +138,6 @@
           "actionUri": "ietf:http:GET:/testpath*"
         }
       ],
-      "condition": {
-        "rule": "req.ip sw 127 and req.method eq POST",
-        "action": "allow"
-      },
       "object": {
         "resource_id": "CanaryProfileService"
       }

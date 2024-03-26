@@ -1,199 +1,167 @@
 package hexaPolicy
 
-# Rego Policy Interpreter for hexaPolicy (IDQL)
-# This rego implements the full IDQL spec including support for conditions
-# Required use of the extended OPA server with hexaFilter extension. See: https://github.com/hexa-org/policy-opa
+# Rego Policy Interpreter for IDQL V0.62.1b (IDQL)
+import rego.v1
 
-import future.keywords.in
 import data.policies
 
-default allow = false
-
 # Returns whether the current operation is allowed
-allow {
-    count(allowSet) > 0
+allow if {
+	count(allowSet) > 0
 }
 
 # Returns the list of possible actions allowed (e.g. for UI buttons)
-actionRights[name] {
-	some i
-    policies[i].id == allowSet[_]
-	name := calcActionName(policies[i].actions[_],policies[i].id)
-}
+actionRights contains name if {
+	some policy in policies
+	policy.meta.policyId in allowSet
 
-calcActionName(action,id) = val {
-	action.exclude == true
-
-    val := sprintf("!%s/%s",[id,action.name])
-}
-calcActionName(action,id) = val {
-	not (action.exclude == true)
-    val := sprintf("%s/%s",[id,action.name])
+	some action in policy.actions
+	name := sprintf("%s/%s", [policy.meta.policyId, action.actionUri])
 }
 
 # Returns the list of matching policy names based on current request
-allowSet[name] {
-    some i
-    subjectMatch(policies[i].subject)
-    subjectMembersMatch(policies[i].subject)
-    subjectRoleMatch(policies[i].subject)
-    actionsMatch(policies[i].actions)
-    objectMatch(policies[i].object)
-    conditionMatch(policies[i])
-    policies[i].id
-    name := policies[i].id  # this will be id of the policy
+allowSet contains name if {
+	some policy in policies
+	subjectMatch(policy.subject, input.subject, input.req)
+	actionsMatch(policy.actions, input.req)
+	objectMatch(policy.object, input.req)
+	conditionMatch(policy, input)
+
+	name := policy.meta.policyId # this will be id of the policy
 }
 
-subjectMembersMatch(subject) {
-    # Match if no members value specified
-    not subject.members
+subjectMatch(psubject, _, _) if {
+	# Match if no members value specified
+	not psubject.members
 }
 
-subjectMembersMatch(subject) {
-    subject.members
-    lower(input.subject.sub) == lower(subject.members[_])
+subjectMatch(psubject, insubject, req) if {
+	# Match if no members value specified
+	some member in psubject.members
+	subjectMemberMatch(member, insubject, req)
 }
 
-subjectRoleMatch(subject) {
-    not subject.role
+subjectMemberMatch(member, _, _) if {
+	# If policy is any that we will skip processing of subject
+	lower(member) == "any"
 }
 
-subjectRoleMatch(subject) {
-    subject.role
-    input.subject.roles
-    lower(subject.role) == lower(input.subject.roles[_])
+subjectMemberMatch(member, insubj, _) if {
+	# anyAutheticated - A match occurs if input.subject has a value other than anonymous and exists.
+	insubj.sub # check sub exists
+	lower(member) == "anyauthenticated"
 }
 
-subjectMatch(subject) {
-    # If policy is any that we will skip processing of subject
-    lower(subject.type) == "any"
+# Check for match based on user:<sub>
+subjectMemberMatch(member, insubj, _) if {
+	startswith(lower(member), "user:")
+	user := substring(member, 5, -1)
+	lower(user) == lower(insubj.sub)
 }
 
-subjectMatch(subject) {
-    # anyAutheticated - A match occurs if input.subject has a value other than anonymous and exists.
-    input.subject.sub # check sub exists
-    lower(subject.type) == "anyauthenticated"
-    not lower(input.subject.type) == "anonymous"
+# Check for match if sub ends with domain
+subjectMemberMatch(member, insubj, _) if {
+	startswith(lower(member), "domain:")
+	domain := lower(substring(member, 7, -1))
+	endswith(lower(insubj.sub), domain)
 }
 
-subjectMatch(subject) {
-    # A subject is authenticated by having the correct IP that is contained by the CIDR value
-    lower(subject.type) == "net"
-    parts := split(input.req.ip,":")
-    net.cidr_contains(subject.cidr,parts[0])
+# Check for match based on role
+subjectMemberMatch(member, insubj, _) if {
+	startswith(lower(member), "role:")
+	role := substring(member, 5, -1)
+	role in insubj.roles
 }
 
-subjectMatch(subject) {
-    # Basic Auth assumes that another middleware function has in validated the basic authorization.
-    # Just check for basic auth type
-    lower(subject.type) == "basic"
-    lower(input.subject.type) == "basic"
-    input.subject.sub #A username was matched
+subjectMemberMatch(member, _, req) if {
+    startswith(lower(member), "net:")
+	cidr := substring(member, 4, -1)
+	addr := split(req.ip, ":")  # Split because IP is address:port
+	net.cidr_contains(cidr, addr[0])
 }
 
-subjectMatch(subject) {
-    subject.type == "jwt"
-    # note: in the future there may be other JWT token types (e.g. DPOP)
-    lower(input.subject.type) == "bearer+jwt"
-    checkJwtIssuer(subject)
-    checkAudience(subject)
+actionsMatch(actions, _) if {
+	# no actions is a match
+	not actions
 }
 
-checkJwtIssuer(subject) {
-    #no policy issuer is acceptable
-    not subject.config.iss
-}
-checkJwtIssuer(subject) {
-    subject.config.iss
-    # Is glob case-insensitive?
-    glob.match(subject.config.iss, ["*"], input.subject.iss)
+actionsMatch(actions, req) if {
+	some action in actions
+	actionMatch(action, req)
 }
 
-checkAudience(subject) {
-    #no policy audience is acceptable
-    not subject.config.aud
-}
-checkAudience(subject) {
-    subject.config.aud
-    # Is glob case-insensitive?
-    glob.match(subject.config.aud, ["*"], input.subject.aud)
+actionMatch(action, req) if {
+	# Check for match based on ietf http
+	checkIetfMatch(action.actionUri, req)
 }
 
-actionsMatch(actions) {
-    # no actions is a match
-    not actions
-}
-actionsMatch(actions) {
-    some i
-    actionMatch(actions[i])
-}
+actionMatch(action, req) if {
+	action.actionUri # check for an action
+	count(req.actionUris) > 0
 
-actionMatch(action) {
-    # handles actions where exclude is false or not set
-    action.actionUri # check for an action
-    not (action.exclude == true)
-
-    # For now, in OPA we will assume only IETF HTTP protocols are used
-    # Do we need an extension mechanism?
-    checkIetfMatch(action.actionUri)
-}
-actionMatch(action) {
-    # handles actions with exclude set
-    action.exclude == true
-    action.actionUri
-    # Verify not having a match is correct
-    not checkIetfMatch(action.actionUri)
+	# Check for a match based on req.ActionUris and actionUri
+	checkUrnMatch(action.actionUri, req.actionUris)
 }
 
-checkIetfMatch(actionUri) {
-    # first match the rule against literals
-    components := split(lower(actionUri),":")
-    count(components) > 2
-    components[0] == "ietf"
-    startswith(components[1],"http")
-
-    startswith(lower(input.req.protocol),"http")
-    checkHttpMethod(components[2],input.req.method)
-
-    checkPath(components[3])
-   
+checkUrnMatch(policyUri, actionUris) if {
+	some action in actionUris
+	lower(policyUri) == lower(action)
 }
 
-# Note:  see https://www.openpolicyagent.org/docs/latest/policy-performance/
-objectMatch(object) {
-    object.pathSpec  # check if pathSpec exists
-    checkPath(object.pathSpec)
+checkIetfMatch(actionUri, req) if {
+	# first match the rule against literals
+	components := split(lower(actionUri), ":")
+	count(components) > 2
+	components[0] == "ietf"
+	startswith(components[1], "http")
+
+	startswith(lower(input.req.protocol), "http")
+	checkHttpMethod(components[2], req.method)
+
+	checkPath(components[3], req)
 }
 
-objectMatch(object) {
-    object.pathRegEx  # check if pathRegEx exists
-    regex.match(object.pathRegEx,input.req.path)
-    # what about query parameters?
+objectMatch(object, req) if {
+    not object
+    not object.resource_id
 }
 
-checkHttpMethod(allowMask,reqMethod) {
-    contains(allowMask, "*")
+objectMatch(object, req) if {
+	object.resource_id
+
+	some reqUri in req.resourceIds
+    lower(object.resource_id) == lower(reqUri)
 }
 
-checkHttpMethod(allowMask,reqMethod) {
-    contains(allowMask,lower(reqMethod))
+checkHttpMethod(allowMask, _) if {
+	contains(allowMask, "*")
 }
 
-checkPath(path) {
-    path # if path specified it must match
-    glob.match(path,["*"],input.req.path)
+checkHttpMethod(allowMask, reqMethod) if {
+	startswith(allowMask, "!")
+
+	not contains(allowMask, lower(reqMethod))
 }
 
-checkPath(path) {
-    not path # if path not specified, it will not be matched
+checkHttpMethod(allowMask, reqMethod) if {
+	not startswith(allowMask, "!")
+	contains(allowMask, lower(reqMethod))
 }
 
-conditionMatch(policy) {
-    not policy.condition  # Most policies won't have a condition
+checkPath(path, req) if {
+	path # if path specified it must match
+	glob.match(path, ["*"], req.path)
 }
 
-conditionMatch(policy) {
-    policy.condition
-    policy.condition.rule
-    hexaFilter(policy.condition.rule,input)  # HexaFilter evaluations the rule for a match against input
+checkPath(path, _) if {
+	not path # if path not specified, it will not be matched
+}
+
+conditionMatch(policy, _) if {
+	not policy.condition # Most policies won't have a condition
+}
+
+conditionMatch(policy, inreq) if {
+	policy.condition
+	hexaFilter(policy.condition.rule, inreq) # HexaFilter evaluations the rule for a match against input
 }
