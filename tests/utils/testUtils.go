@@ -13,7 +13,7 @@ import (
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/gorilla/mux"
-	opaTools "github.com/hexa-org/policy-opa/client/opa"
+	opaTools "github.com/hexa-org/policy-opa/client/hexaOpaClient"
 )
 
 /*
@@ -33,7 +33,8 @@ func SetUpMockServer(key string, path string) *http.Server {
 	// Need to fix this so it will just serve anything for policy testing
 	server := CreateServer(listener.Addr().String(), func(router *mux.Router) {
 		router.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
-			input := opaTools.PrepareInput(r)
+			input := opaTools.PrepareInput(r, []string{}, []string{"CanaryProfileService"})
+
 			marshal, _ := json.Marshal(input)
 			_, _ = w.Write(marshal)
 		}).Queries("a", "{a}", "c", "{c}")

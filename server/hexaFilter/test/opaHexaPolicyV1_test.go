@@ -105,10 +105,13 @@ func TestIdqlJwt(t *testing.T) {
 		log.Fatalln("Received nil OPA results!")
 	}
 
-	allowSet, _ := ProcessResults(results)
-	assert.True(t, len(allowSet) == 3, "confirm 3 matches")
-	assert.Contains(t, allowSet, "TestJwtCanary")
+	fmt.Println("Expecting: TestIPMaskCanary, TestIPMaskCanaryNotDelete, TestJwtCanary, TestJwtMember")
 
+	allowSet, _ := ProcessResults(results)
+	assert.True(t, len(allowSet) == 4, "confirm 4 matches")
+	assert.Contains(t, allowSet, "TestJwtCanary")
+	assert.Contains(t, allowSet, "TestJwtMember")
+	assert.NotContains(t, allowSet, "TestJwtRole")
 	utils.StopServer(server)
 }
 
@@ -348,7 +351,7 @@ func RunRego(inputByte []byte, regoPath string, dataPath string) rego.ResultSet 
 		log.Fatalln("Error parsing input data: " + err.Error())
 	}
 	regoHandle := rego.New(
-
+		rego.EnablePrintStatements(true),
 		rego.Query("data.hexaPolicy"),
 		rego.Package("hexaPolicy"),
 		rego.Module("bundle/hexaPolicyV2.rego", regoString),
@@ -394,6 +397,7 @@ func RunRego(inputByte []byte, regoPath string, dataPath string) rego.ResultSet 
 func ProcessResults(results rego.ResultSet) ([]string, []string) {
 	var rights string
 	var allowString string
+	var allowed string
 	result := results[0].Expressions[0]
 	for k, v := range result.Value.(map[string]interface{}) {
 		if k == "actionRights" {
@@ -402,6 +406,9 @@ func ProcessResults(results rego.ResultSet) ([]string, []string) {
 		if k == "allowSet" {
 			allowString = fmt.Sprintf("%v", v)
 		}
+		if k == "allow" {
+			allowed = fmt.Sprintf("%v", v)
+		}
 	}
 	actionRights := strings.FieldsFunc(rights, func(r rune) bool {
 		return strings.ContainsRune("[ ]", r)
@@ -409,9 +416,9 @@ func ProcessResults(results rego.ResultSet) ([]string, []string) {
 	allowSet := strings.FieldsFunc(allowString, func(r rune) bool {
 		return strings.ContainsRune("[ ]", r)
 	})
-	fmt.Println("Text result: " + result.Text)
-	fmt.Println("actionRights:" + rights)
-	fmt.Println("allowSet:" + allowString)
+	fmt.Println("allowed:     \t" + allowed)
+	fmt.Println("actionRights:\t" + rights)
+	fmt.Println("allowSet:    \t" + allowString)
 
 	return allowSet, actionRights
 }

@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/hexa-org/policy-opa/client/opa"
+	"github.com/hexa-org/policy-opa/client/hexaOpaClient"
 	"github.com/hexa-org/policy-opa/tests/utils"
 	"github.com/stretchr/testify/assert"
 )
@@ -25,7 +25,7 @@ func TestAnonymous(t *testing.T) {
 	}
 	body, _ := io.ReadAll(resp.Body)
 
-	var input opaTools.OpaInfo
+	var input hexaOpaClient.OpaInfo
 	err = json.Unmarshal(body, &input)
 	assert.NoError(t, err)
 	fmt.Println(string(body))
@@ -59,7 +59,7 @@ func TestBasicAuth(t *testing.T) {
 	}
 	body, _ := io.ReadAll(resp.Body)
 
-	var input opaTools.OpaInfo
+	var input hexaOpaClient.OpaInfo
 	err = json.Unmarshal(body, &input)
 	assert.NoError(t, err)
 	reqInfo := input.Req
@@ -99,7 +99,7 @@ func TestJwtAuth(t *testing.T) {
 	}
 	body, _ := io.ReadAll(resp.Body)
 
-	var input opaTools.OpaInfo
+	var input hexaOpaClient.OpaInfo
 	err = json.Unmarshal(body, &input)
 	assert.NoError(t, err)
 	reqInfo := input.Req
@@ -143,7 +143,7 @@ func TestExpiredJwtAuth(t *testing.T) {
 	}
 	body, _ := io.ReadAll(resp.Body)
 
-	var input opaTools.OpaInfo
+	var input hexaOpaClient.OpaInfo
 	err = json.Unmarshal(body, &input)
 	assert.NoError(t, err)
 

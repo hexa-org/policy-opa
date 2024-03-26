@@ -120,6 +120,7 @@ func evalCompareVals(attrValue interface{}, compValue string, op filter.CompareO
 func evalAttributeExpression(e filter.AttributeExpression, input string) (bool, error) {
 	path := e.AttributePath
 	attrValue := getAttributeValue(input, path)
+	// TODO: May have to support inverted values (input attribute on right)
 
 	compValue := e.CompareValue
 	switch av := attrValue.(type) {
@@ -150,7 +151,7 @@ func evalAttributeExpression(e filter.AttributeExpression, input string) (bool, 
 func evalCompareStrings(op filter.CompareOperator, attrVal string, compVal string) bool {
 	switch op {
 	case filter.EQ:
-		return attrVal == compVal
+		return strings.EqualFold(attrVal, compVal)
 	case filter.LT:
 		return attrVal < compVal
 	case filter.GT:
