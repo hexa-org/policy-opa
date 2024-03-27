@@ -2,9 +2,8 @@
 
 # Hexa Integration Support for Open Policy Agent (OPA)
 
-This OPA Integration project extends support for Hexa IDQL Policy running inside an Open Policy Agent (OPA) server. 
-Support includes new functionality for condition expressions new to IDQL
-support. This integration includes:
+This project provides support for running Hexa IDQL Policy on Open Policy Agent (OPA) servers. 
+This integration includes:
 
 * [Hexa rego policy](deployments/testBundleServer/resources/bundles/bundle/hexaPolicy.rego) to evaluate IDQL policy statements in an OPA Policy Agent.
 * An OPA `hexaFilter` plugin enabling dynamic evaluation of IDQL Conditions.
@@ -51,9 +50,10 @@ or docker-compose, reference the image `independentid/hexaopa:latest`.
 
 
 ## Enabling Go Applications with OPA and IDQL
+
 An OPA Client is simply an application (a policy enforcement point or PAP) that makes a request to an OPA server to request a policy decision.
 
-To make a request, a client application may use the `opaTools` package to call PrepareInput to prepare an input object to pass to
+To make a request, a client application may use the `client/hexaOpaClient` package to call PrepareInput to prepare an input object to pass to
 OPA.
 ```go
 func (w http.ResponseWriter, r *http.Request) {
@@ -148,54 +148,86 @@ might apply to the subject (BasicBob), and `actionRights` indicates all of the p
 attributes actionRights and allowSet are provided to enable applications to control UI presentation such as what buttons 
 to enable or disable.
 
-In another example, the `hexaFilter` rego extension enables the ability to evaluate input structures provided by `client/opa/opaTools` request builder using
-a condition clause in IDQL in the Hexa Rego script.
+In another example, the `hexaFilter` rego extension enables the ability to evaluate input structures provided by `client/hexaOpaClient` request builder using
+a condition clause in IDQL in the Hexa Rego script. In this example, in order for the request to be allowed, the user (subject) must be "BasicBob", and they must 
+have a JWT authorization token with the role "abc" that is issued by "testIssuer". Additionally, the HTTP request must be either a `GET` or `POST` to the path `/testpath*`
+where `*` is a wildcard to match any path beginning with `/testpath`.
 
 Example IDQL with Condition Statement:
 ```json
-    {
-      "id": "TestIPMaskCanaryPOST",
-      "meta": {
-        "version": "0.1",
-        "date": "2021-08-01 21:32:44 UTC",
-        "description": "Access enabling user self service for users with role",
-        "applicationId": "CanaryBank1",
-        "layer": "Browser"
-      },
-      "subject": {
-        "type": "net",
-        "providerId": "myTestIDP",
-        "cidr" : "127.0.0.1/24"
-      },
-      "actions": [
-        {
-          "actionUri": "ietf:http:POST:/testpath*"
-        },
-        { 
-          "actionUri": "ietf:http:GET:/testpath*"
-        }
-      ],
-      "condition": {
-        "rule": "req.ip sw 127 and req.method eq POST",
-        "action": "allow"
-      },
-      "object": {
-        "assetId": "CanaryProfileService",
-        "pathSpec": "/testpath*"
-      }
-    }
-```
-
-The relevant enhancement in the above IDQL is:
-```json
 {
+  "meta": {
+    "version": "0.6",
+    "date": "2021-08-01 21:32:44 UTC",
+    "description": "Test that allows jwt authenticated specific subject *and* has a role",
+    "policyId": "TestJwtRole"
+  },
+  "subject": {
+    "members" : ["user:BaSicBob"]
+  },
+  "actions": [
+    {
+      "actionUri": "ietf:http:POST:/testpath*"
+    },
+    {
+      "actionUri": "ietf:http:GET:/testpath*"
+    }
+  ],
+  "object": {
+    "resource_id": "CanaryProfileService"
+  },
   "condition": {
-    "rule": "req.ip sw 127 and req.method eq POST",
+    "rule": "subject.type eq jwt and subject.iss eq testIssuer and subject.aud co testAudience and subject.roles co abc",
     "action": "allow"
   }
 }
 ```
-In this condition, the input values `req.ip` is evaluated to start with `127` and the `req.method` must equal `POST`.
+
+The relevant enhancement in the above IDQL is:
+```json
+"condition": {
+  "rule": "subject.type eq jwt and subject.iss eq testIssuer and subject.aud co testAudience and subject.roles co abc",
+  "action": "allow"
+}
+```
+In the condition clause above, the authentication type is matched as `jwt`, the issuer and audience are also matched 
+to the values `testIssuer` and `testAudience`, and finally the user is checked for the role "abc".
 Note that this example is a bit hypothetical since the "actions" already test permissible actions using the actionURI. The exmaple
 provided is mainly to demonstrate that multiple conditions can be tested with and and or clauses as per the
 [IDQL specification.](https://github.com/hexa-org/policy/blob/main/specs/IDQL-core-specification.md)
+
+## Hexa Input for IDQL Policies
+
+When using the `client/hexaOpaClient` go package to prepare your authorization request the following attributes are
+prepared that can be submitted to the Open Policy Agent service. While any attribute can be referenced in a condition rule, 
+the column `IDQL Use` indicates how the attribute is used in IDQL clauses.
+
+| Category | Attribute   | Type                   | Description                                                            | IDQL Use                 |
+|----------|-------------|------------------------|------------------------------------------------------------------------|--------------------------|
+| req      | ip          | string                 | The client TCP/IP address and port (e.g. 127.0.0.1:65151)              | members (net:)           |
+|          | protocol    | string                 | The request protocol (http)                                            |                          |
+|          | method      | string                 | The HTTP Method (GET, DELETE, PATCH, POST, PUT)                        | Actions (ietf:http:)     |
+|          | path        | string                 | The path of the request (e.g. /Users )                                 | Actions (ietf:http:)     |
+|          | param       | map[string][]string    | A map of all URL query parameters (e.g. /<path>?a=b&c=d                |                          |
+|          | header      | map[string][]string    | A map of all HTTP Headers                                              |                          |
+|          | time        | time.Time              | The date and time the request was received                             |                          |
+|          | actionUris  | []string               | Client app supplied: actionUri(s) to be invoked                        | Actions (uri value)      |
+|          | resourceIds | []string               | Client app supplied: The resource_id(s) of the requesting app          | Object (resource_id)     |
+| subject  | type        | string                 | The type of authentication (Anonymous basic, or jwt)                   |                          |
+|          | sub         | string                 | The JWT 'sub" value or the Basic Auth username                         | Members (user:, domain:) |
+|          | roles       | []string               | Roles asserted in a JWT assertion                                      | Members (role:)          |
+|          | claims      | map[string]interface{} | The set of claims received in a JWT assertion                          |                          |
+|          | expires     | time.Time              | The expiry time of the JWT received                                    |                          |
+|          | iat         | time.Time              | The time the JWT was issued                                            |                          |
+|          | nbf         | time.Time              | A time before which the certificate should be ignored                  |                          |
+|          | iss         | string                 | The issuer of the received JWT                                         |                          |
+|          | aud         | []string               | An array of values indicating valud audiences for the use of the token |                          |
+
+For any value above, OPA reqo will process this variables. For example `input.subject.type` refers to the type of authentication.
+
+## Writing IDQL Policy for the HexaOpa
+
+This section describes currently supported values for policies and supported condition clauses available.
+
+To be completed.
+
