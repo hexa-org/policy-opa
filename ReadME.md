@@ -227,7 +227,51 @@ For any value above, OPA reqo will process this variables. For example `input.su
 
 ## Writing IDQL Policy for the HexaOpa
 
-This section describes currently supported values for policies and supported condition clauses available.
+In OPA Rego, IDQL policy is submitted in a JSON format as data input to OPA servers. The [hexaPolicy rego package](server/hexaFilter/test/bundle/hexaPolicyV2.rego) is then used
+to compare input (previous section) with IDQL data to determine if an access is `allow`ed. 
 
-To be completed.
+The following is a template for a typical IDQL policy. The values in brackets are described below:
+```json
+{
+  "meta": {
+    "version": "<idql_version>",
+    "date": "<date>",
+    "description": "<descriptive text>",
+    "policyId": "<policyId>"
+  },
+  "subject": {
+    "members": [
+      "<type>:<member>"
+    ]
+  },
+  "actions": [
+    {
+      "actionUri": "<actionUri>"
+    }
+  ],
+  "condition": {
+    "rule": "<idql-filter>",
+    "action": "<allow|deny>"
+  },
+  "object": {
+    "resource_id": "<app-resource-id>"
+  }
+}
+```
+
+IDQL field values, format and how to use:
+
+| Field           | Format                                                                       | Use                                                    | Description                                                                                                                                                                                                                                                                                                                                                                                                                               |
+|-----------------|------------------------------------------------------------------------------|--------------------------------------------------------|-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
+| idql_version    | n.n (typically 0.6)                                                          | Informational                                          | Typically reflects the current IDQL version from [hexa-org/policy-mapper](https://github.com/hexa-org/policy-mapper).                                                                                                                                                                                                                                                                                                                     |
+| policyId        | string                                                                       | Required - OPA returns policy ids in `allowSet`        | Used to identify which IDQL policy was matched in rego                                                                                                                                                                                                                                                                                                                                                                                    |
+| type:member     | multi-value string                                                           | Matches input subjects                                 | Types: `any`, `anyAuthenticated`, `user:`username/sub, `domain:`domainsuffix, `role:`rolename, `net:`cidr                                                                                                                                                                                                                                                                                                                                 | 
+|                 |                                                                              |                                                        | `any` means any user or anonymous subject<br/>`anyAuthenticated` means any authenticated subject<br/>`user` matches `input.subject.sub` (e.g. `basicbob@hexa.org`)<br/>`domain` matches the suffix of `input.subject.sub` (e.g. `@hexa.org`)<br/>`role` matches `input.subject.roles` (e.g. `admin`)<br/>`net` matches a [CIDR](https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing) with `input.req.ip` (e.g. `198.51.100.14/24`) |
+| actionUri       |                                                                              | Returned in `actionRights`                             | One of two forms:                                                                                                                                                                                                                                                                                                                                                                                                                         |
+|                 | `urn:`name                                                                   | Logical rights permitted                               | Matches against `input.request.actionUris`(asserted by the calling application)                                                                                                                                                                                                                                                                                                                                                           |
+|                 | `ietf:http:`method:path                                                      | HTTP Requests Permitted                                | `method` is one of `GET`, `DELETE`, `PATCH`, `POST`, `PUT`, or `*` for any method<br/>`path` is the request path (* to wildcard)                                                                                                                                                                                                                                                                                                          |
+| app-resource-id | string                                                                       | The name of the resource the policy is associated with | Matches against `input.request.resourceIds`                                                                                                                                                                                                                                                                                                                                                                                               |
+| idql-filter     | [SCIM Filter](https://datatracker.ietf.org/doc/html/rfc7644#section-3.4.2.2) | Run-time attribute conditions                          | Filter matches against OPA input attributes (e.g. input.subject.type eq jwt)                                                                                                                                                                                                                                                                                                                                                              |
+| allow deny      | `allow` (default) or `deny`                                                  | Determines the outcome of condition                    | If filter is true the policy matches if action is `allow`. Policy does not match if action is `deny`.                                                                                                                                                                                                                                                                                                                                     |
+
 
