@@ -3,8 +3,8 @@ package conditionEvaluator
 import (
 	"errors"
 	"fmt"
-
 	"strconv"
+
 	"strings"
 
 	"github.com/hexa-org/policy-mapper/pkg/hexapolicy/conditions"
@@ -16,7 +16,7 @@ import (
 )
 
 /*
-Evaluate takes in an IDQL expression, parses it, and than compares against the input provided.
+Evaluate takes in an IDQL expression, parses it, and then compares against the input provided.
 'input' is a JSON structure containing data provided by the client using OpaTools.PrepareInput
 */
 func Evaluate(expression string, input string) (bool, error) {
@@ -27,9 +27,24 @@ func Evaluate(expression string, input string) (bool, error) {
 	return evalWalk(*ast, input)
 }
 
-func getAttributeValue(input string, path string) interface{} {
+func getAttributeValue(input string, path string) gjson.Result {
+	// if it is a quoted value, just return it
+	if strings.HasPrefix(path, "\"") && strings.HasSuffix(path, "\"") {
+		return gjson.Result{
+			Type: gjson.String,
+			Str:  path[1 : len(path)-1],
+		}
+	}
+
 	res := gjson.Get(input, path)
-	return res.Value()
+
+	if res.Type == gjson.Null {
+		return gjson.Result{
+			Type: gjson.String,
+			Str:  path,
+		}
+	}
+	return res
 }
 
 func evalWalk(e filter.Expression, input string) (bool, error) {
@@ -82,75 +97,97 @@ func evalCompareNil(compValue interface{}, op filter.CompareOperator) bool {
 	return false
 }
 
+// SafeFloat returns a float value and indicates true if comparable as a float.
+func safeFloat(result gjson.Result) (float64, bool) {
+	switch result.Type {
+	default:
+		return 0, false
+	case gjson.True:
+		return 1, true
+	case gjson.String:
+		n, err := strconv.ParseFloat(result.Str, 64)
+		if err != nil {
+			return n, false
+		}
+		return n, true
+	case gjson.Number:
+		return result.Num, true
+	}
+}
+
 /*
-evalCompareVals performs the binary logic compare operation specified by the operator. note that the compare value
+evalCompareValues performs the binary logic compare operation specified by the operator. note that the compare value
 from the parser is always in string form from the original expression.
 */
-func evalCompareVals(attrValue interface{}, compValue string, op filter.CompareOperator) (bool, error) {
-	if attrValue == nil {
+func evalCompareValues(attrValue gjson.Result, compValue gjson.Result, op filter.CompareOperator) (bool, error) {
+	if !attrValue.Exists() {
 		return evalCompareNil(compValue, op), nil
 	}
 
-	switch v := attrValue.(type) {
-	case string:
-		return evalCompareStrings(op, attrValue.(string), compValue), nil
-
-	case int:
-		iValue, err := strconv.Atoi(compValue)
-		if err != nil {
-			return false, err
-		}
-		return evalCompareInt(op, v, iValue), nil
-	case float32:
-		fValue, err := strconv.ParseFloat(compValue, 32)
-		if err != nil {
-			return false, err
-		}
-		return evalCompareFloat(op, float64(v), fValue), nil
-	case float64:
-		fValue, err := strconv.ParseFloat(compValue, 64)
-		if err != nil {
-			return false, err
-		}
-		return evalCompareFloat(op, v, fValue), nil
-	}
-	return false, errors.New("Undefined attribute input type: " + fmt.Sprint(attrValue))
-}
-
-func evalAttributeExpression(e filter.AttributeExpression, input string) (bool, error) {
-	path := e.AttributePath
-	attrValue := getAttributeValue(input, path)
-	// TODO: May have to support inverted values (input attribute on right)
-
-	compValue := e.CompareValue
-	switch av := attrValue.(type) {
-
-	case string, int, float32, float64, nil:
-		return evalCompareVals(attrValue, compValue, e.Operator)
-
-	case []interface{}:
+	if compValue.IsArray() {
 		match := false
-		for _, v := range av {
-			res, err := evalCompareVals(v, compValue, e.Operator)
+		for _, val := range compValue.Array() {
+			res, err := evalCompareValues(attrValue, val, op)
 			if err != nil {
 				fmt.Println(err.Error())
 			}
 			if res {
 				match = true
+				break
 			}
 		}
 		return match, nil
-	default:
-		msg := fmt.Sprintf("AttributePath type %t not implemented for compare: %v", av, compValue)
-		fmt.Println(msg)
-		return false, errors.New(msg)
 	}
 
+	if attrValue.Type == gjson.Number || compValue.Type == gjson.Number {
+		leftFloat, isNum := safeFloat(attrValue)
+		if isNum {
+			if !compValue.Exists() {
+				return evalCompareNil(attrValue, op), nil
+			}
+			rightFloat, isNum := safeFloat(compValue)
+			if isNum {
+				return evalCompareFloat(op, leftFloat, rightFloat), nil
+			}
+		}
+		return false, errors.New("invalid number comparison")
+	}
+
+	if attrValue.Type == gjson.String {
+		return evalCompareStrings(op, attrValue.Str, compValue.String()), nil
+	}
+
+	return false, errors.New("Undefined attribute input type: " + fmt.Sprint(attrValue))
+}
+
+func evalAttributeExpression(e filter.AttributeExpression, input string) (bool, error) {
+	path := e.AttributePath
+	leftValue := getAttributeValue(input, path)
+	// TODO: May have to support inverted values (input attribute on right)
+
+	compValue := getAttributeValue(input, e.CompareValue)
+
+	if leftValue.IsArray() {
+		match := false
+		for _, val := range leftValue.Array() {
+			res, err := evalCompareValues(val, compValue, e.Operator)
+			if err != nil {
+				fmt.Println(err.Error())
+			}
+			if res {
+				match = true
+				break
+			}
+		}
+		return match, nil
+	}
+
+	return evalCompareValues(leftValue, compValue, e.Operator)
 }
 
 func evalCompareStrings(op filter.CompareOperator, attrVal string, compVal string) bool {
 	switch op {
-	case filter.EQ:
+	case filter.EQ, filter.IN:
 		return strings.EqualFold(attrVal, compVal)
 	case filter.LT:
 		return attrVal < compVal
@@ -175,6 +212,8 @@ func evalCompareStrings(op filter.CompareOperator, attrVal string, compVal strin
 	return false
 }
 
+/*
+evalCompareInt replaced by float compare
 func evalCompareInt(op filter.CompareOperator, attrVal int, compVal int) bool {
 	switch op {
 	case filter.EQ:
@@ -193,6 +232,7 @@ func evalCompareInt(op filter.CompareOperator, attrVal int, compVal int) bool {
 		return false
 	}
 }
+*/
 
 func evalCompareFloat(op filter.CompareOperator, attrVal float64, compVal float64) bool {
 	switch op {

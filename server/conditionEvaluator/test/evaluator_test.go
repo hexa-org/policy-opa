@@ -2,9 +2,10 @@ package test
 
 import (
 	"fmt"
+	"testing"
+
 	"github.com/hexa-org/policy-opa/server/conditionEvaluator"
 	"github.com/stretchr/testify/assert"
-	"testing"
 )
 
 var input = `
@@ -27,9 +28,11 @@ var input = `
 	},
 	"subject":{
 		"type":"basic",
-		"sub":"testUser"
+		"sub":"testUser",
+		"roles": ["a","b","c"]
 	},
 	"level" : 4,
+	"dlevel" : 4.1
 }`
 
 type testType struct {
@@ -39,7 +42,12 @@ type testType struct {
 }
 
 var tests = []testType{
+	{"a in subject.roles", true, ""},
+	{"\"b\" in subject.roles", true, ""},
+	{"d in subject.roles", false, ""},
+	{"bleh lt dlevel", false, "invalid number comparison"},
 	{"subject.sub pr", true, ""},
+	{"testUser eq subject.sub", true, ""},
 	{"req.ip sw \"192.0.0.1\"", false, ""},
 	{"req.param.a eq \"b\"", true, ""},
 	{"req.param.c eq \"b\"", false, ""},
@@ -48,6 +56,9 @@ var tests = []testType{
 	{"a.b eq testNoAttribute and req.param.c gt \"b\"", false, ""},
 	{"level eq 4", true, ""},
 	{"level ne 4", false, ""},
+	{"4 lt dlevel", true, ""},
+	{"1.1 lt dlevel", true, ""},
+	{"dlevel lt 100", true, ""},
 }
 
 func TestEvaluate(t *testing.T) {
