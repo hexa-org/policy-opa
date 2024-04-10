@@ -3,8 +3,8 @@ package opaHandler
 import (
 	"testing"
 
+	infoModel2 "github.com/hexa-org/policy-opa/api/infoModel"
 	opaTools "github.com/hexa-org/policy-opa/client/hexaOpaClient"
-	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/infoModel"
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/userHandler"
 	"github.com/stretchr/testify/assert"
 )
@@ -36,10 +36,10 @@ func TestOpaHandler(t *testing.T) {
 		ResourceIds: []string{"todo"},
 	}
 
-	input := infoModel.AzInfo{
+	input := infoModel2.AzInfo{
 		Req:      &reqParams,
 		Subject:  &subject,
-		Resource: infoModel.ResourceInfo{},
+		Resource: infoModel2.ResourceInfo{},
 	}
 
 	results, err := handler.Evaluate(input)
@@ -82,10 +82,10 @@ func TestOpaHandler(t *testing.T) {
 		Type:   "jwt",
 	}
 
-	input = infoModel.AzInfo{
+	input = infoModel2.AzInfo{
 		Req:      &reqParams,
 		Subject:  &subject,
-		Resource: infoModel.ResourceInfo{},
+		Resource: infoModel2.ResourceInfo{},
 	}
 
 	results, err = handler.Evaluate(input)

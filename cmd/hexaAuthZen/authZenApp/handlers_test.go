@@ -11,9 +11,9 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/hexa-org/policy-opa/api/infoModel"
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/config"
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/decisionHandler"
-	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/infoModel"
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/userHandler"
 	"github.com/hexa-org/policy-opa/pkg/compressionsupport"
 	"github.com/stretchr/testify/assert"

@@ -4,10 +4,10 @@ package decisionHandler
 import (
 	"net/http"
 
+	infoModel2 "github.com/hexa-org/policy-opa/api/infoModel"
 	opaTools "github.com/hexa-org/policy-opa/client/hexaOpaClient"
-	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/infoModel"
-	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/opaHandler"
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/userHandler"
+	"github.com/hexa-org/policy-opa/server/opaHandler"
 )
 
 type DecisionHandler struct {
@@ -26,7 +26,7 @@ func (d *DecisionHandler) ProcessUploadOpa() error {
 	return d.regoHandler.ReloadRego()
 }
 
-func (d *DecisionHandler) createInputObjectSimple(authRequest infoModel.AuthRequest, _ *http.Request) infoModel.AzInfo {
+func (d *DecisionHandler) createInputObjectSimple(authRequest infoModel2.AuthRequest, _ *http.Request) infoModel2.AzInfo {
 	user := d.pip.GetUser(authRequest.Subject.Identity)
 
 	claims := make(map[string]interface{})
@@ -47,7 +47,7 @@ func (d *DecisionHandler) createInputObjectSimple(authRequest infoModel.AuthRequ
 		ResourceIds: []string{"todo"},
 	}
 
-	return infoModel.AzInfo{
+	return infoModel2.AzInfo{
 		Req:      &reqParams,
 		Subject:  &subject,
 		Resource: authRequest.Resource,
@@ -59,7 +59,7 @@ func (d *DecisionHandler) createInputObjectSimple(authRequest infoModel.AuthRequ
 ProcessDecision takes an AuthZen AuthRequest, generates a Hexa OPA input object that combines resource, subject, and
 request information and calls the HexaOPA decision engine and parses the results.
 */
-func (d *DecisionHandler) ProcessDecision(authRequest infoModel.AuthRequest, r *http.Request) (*infoModel.SimpleResponse, error, int) {
+func (d *DecisionHandler) ProcessDecision(authRequest infoModel2.AuthRequest, r *http.Request) (*infoModel2.SimpleResponse, error, int) {
 
 	input := d.createInputObjectSimple(authRequest, r)
 
@@ -71,13 +71,13 @@ func (d *DecisionHandler) ProcessDecision(authRequest infoModel.AuthRequest, r *
 
 	// process response
 	if allowed == "true" {
-		return &infoModel.SimpleResponse{true}, nil, 200
+		return &infoModel2.SimpleResponse{true}, nil, 200
 	}
-	return &infoModel.SimpleResponse{false}, nil, 200
+	return &infoModel2.SimpleResponse{false}, nil, 200
 }
 
 // ProcessQueryDecision takes an AuthZen Query request processes each query into an HexaOPA decision and returns a response
-func (d *DecisionHandler) ProcessQueryDecision(_ infoModel.QueryRequest, _ *http.Request) (*infoModel.EvaluationsResponse, error, int) {
+func (d *DecisionHandler) ProcessQueryDecision(_ infoModel2.QueryRequest, _ *http.Request) (*infoModel2.EvaluationsResponse, error, int) {
 	// TODO: Implement Process query decision
 	return nil, nil, http.StatusNotImplemented
 }

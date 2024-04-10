@@ -6,8 +6,8 @@ import (
 	"log"
 	"os"
 
+	"github.com/hexa-org/policy-opa/api/infoModel"
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/config"
-	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/infoModel"
 )
 
 const DefaultUserPipFile string = "../resources/users.json"

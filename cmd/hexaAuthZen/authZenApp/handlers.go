@@ -10,8 +10,8 @@ import (
 	"path/filepath"
 	"time"
 
+	"github.com/hexa-org/policy-opa/api/infoModel"
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/config"
-	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/infoModel"
 	"github.com/hexa-org/policy-opa/pkg/compressionsupport"
 )
 
