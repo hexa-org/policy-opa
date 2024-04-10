@@ -44,18 +44,45 @@ func (az *AuthZenApp) HandleEvaluation(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set(config.HeaderRequestId, requestId)
 	}
 
-	bodyBytes, _ := json.Marshal(resp)
-	_, _ = w.Write(bodyBytes)
-	w.WriteHeader(http.StatusOK)
+	if resp != nil {
+		bodyBytes, _ := json.Marshal(resp)
+		_, _ = w.Write(bodyBytes)
+	}
+
+	w.WriteHeader(status)
 }
 
 func (az *AuthZenApp) HandleQueryEvaluation(w http.ResponseWriter, r *http.Request) {
 	requestId := r.Header.Get(config.HeaderRequestId)
 
+	var jsonRequest infoModel.QueryRequest
+	err := json.NewDecoder(r.Body).Decode(&jsonRequest)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	resp, err, status := az.Decision.ProcessQueryDecision(jsonRequest, r)
+	if err != nil {
+		tid := requestId
+		if tid == "" {
+			tid = "UNK"
+		}
+		config.ServerLog.Println(fmt.Sprintf("Unexpected decision error (id: %s): %s", tid, err.Error()))
+		http.Error(w, fmt.Sprintf("Unexpected internal decision error (id: %s", tid), status)
+		return
+	}
+
 	if requestId != "" {
 		w.Header().Set(config.HeaderRequestId, requestId)
 	}
 
+	if resp != nil {
+		bodyBytes, _ := json.Marshal(resp)
+		_, _ = w.Write(bodyBytes)
+	}
+
+	w.WriteHeader(status)
 }
 
 func handleError(msg string, err error, w http.ResponseWriter, status int) {

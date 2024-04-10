@@ -1,3 +1,4 @@
+// Package decisionHandler maps between AuthZen requests and the HexaOPA IDQL based engine
 package decisionHandler
 
 import (
@@ -25,7 +26,7 @@ func (d *DecisionHandler) ProcessUploadOpa() error {
 	return d.regoHandler.ReloadRego()
 }
 
-func (d *DecisionHandler) createInputObjectSimple(authRequest infoModel.AuthRequest, r *http.Request) infoModel.AzInfo {
+func (d *DecisionHandler) createInputObjectSimple(authRequest infoModel.AuthRequest, _ *http.Request) infoModel.AzInfo {
 	user := d.pip.GetUser(authRequest.Subject.Identity)
 
 	claims := make(map[string]interface{})
@@ -54,6 +55,10 @@ func (d *DecisionHandler) createInputObjectSimple(authRequest infoModel.AuthRequ
 
 }
 
+/*
+ProcessDecision takes an AuthZen AuthRequest, generates a Hexa OPA input object that combines resource, subject, and
+request information and calls the HexaOPA decision engine and parses the results.
+*/
 func (d *DecisionHandler) ProcessDecision(authRequest infoModel.AuthRequest, r *http.Request) (*infoModel.SimpleResponse, error, int) {
 
 	input := d.createInputObjectSimple(authRequest, r)
@@ -71,7 +76,8 @@ func (d *DecisionHandler) ProcessDecision(authRequest infoModel.AuthRequest, r *
 	return &infoModel.SimpleResponse{false}, nil, 200
 }
 
-func (d *DecisionHandler) ProcessQueryDecision(authRequest infoModel.QueryRequest, r *http.Request) (*infoModel.EvaluationsResponse, error) {
-
-	return nil, nil
+// ProcessQueryDecision takes an AuthZen Query request processes each query into an HexaOPA decision and returns a response
+func (d *DecisionHandler) ProcessQueryDecision(_ infoModel.QueryRequest, _ *http.Request) (*infoModel.EvaluationsResponse, error, int) {
+	// TODO: Implement Process query decision
+	return nil, nil, http.StatusNotImplemented
 }

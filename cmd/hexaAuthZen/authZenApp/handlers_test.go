@@ -2,6 +2,7 @@ package authZenApp
 
 import (
 	"bytes"
+	"encoding/json"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -12,12 +13,14 @@ import (
 
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/config"
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/decisionHandler"
+	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/infoModel"
+	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/userHandler"
 	"github.com/hexa-org/policy-opa/pkg/compressionsupport"
 	"github.com/stretchr/testify/assert"
 )
 
 func cleanup(path string) {
-	os.RemoveAll(path)
+	_ = os.RemoveAll(path)
 }
 
 func TestGetBundle(t *testing.T) {
@@ -75,7 +78,7 @@ func TestUploadBundle(t *testing.T) {
 	bundleDir := initTestBundlesDir(t)
 	defer cleanup(bundleDir)
 
-	os.Setenv(config.EnvBundleDir, bundleDir)
+	_ = os.Setenv(config.EnvBundleDir, bundleDir)
 	az := AuthZenApp{bundleDir: bundleDir}
 	az.Decision = decisionHandler.NewDecisionHandler()
 
@@ -112,7 +115,7 @@ func TestUploadBadBundle(t *testing.T) {
 	bundleDir := initTestBundlesDir(t)
 	defer cleanup(bundleDir)
 
-	os.Setenv(config.EnvBundleDir, bundleDir)
+	_ = os.Setenv(config.EnvBundleDir, bundleDir)
 	az := AuthZenApp{bundleDir: bundleDir}
 	az.Decision = decisionHandler.NewDecisionHandler()
 
@@ -133,4 +136,63 @@ func TestUploadBadBundle(t *testing.T) {
 	assert.Equal(t, http.StatusBadRequest, rr.Code)
 	body = rr.Body.String()
 	assert.Contains(t, body, "data.json: unexpected EOF", "Check error reported")
+}
+
+func TestHandleEvaluation(t *testing.T) {
+	bundleDir := initTestBundlesDir(t)
+	defer cleanup(bundleDir)
+
+	_ = os.Setenv(config.EnvBundleDir, bundleDir)
+	_ = os.Setenv(config.EnvAuthUserPipFile, userHandler.DefaultUserPipFile)
+	az := AuthZenApp{bundleDir: bundleDir}
+	az.Decision = decisionHandler.NewDecisionHandler()
+
+	body := infoModel.AuthRequest{
+		Subject: infoModel.SubjectInfo{Identity: "CiRmZDM2MTRkMy1jMzlhLTQ3ODEtYjdiZC04Yjk2ZjVhNTEwMGQSBWxvY2Fs"},
+		Action:  infoModel.ActionInfo{Name: "can_read_todos"},
+	}
+
+	bodyBytes, err := json.Marshal(&body)
+	assert.NoError(t, err, "Check no error serializing request")
+	req, err := http.NewRequest("POST", config.EndpointAuthzenSingleDecision, bytes.NewReader(bodyBytes))
+	req.Header.Set(config.HeaderRequestId, "1234")
+	rr := httptest.NewRecorder()
+	az.HandleEvaluation(rr, req)
+
+	assert.Equal(t, "1234", rr.Header().Get(config.HeaderRequestId), "Check request id is returned")
+	assert.Equal(t, http.StatusOK, rr.Code, "Request processed ok")
+	bodyBytes = rr.Body.Bytes()
+
+	var simpleResponse infoModel.SimpleResponse
+	err = json.Unmarshal(bodyBytes, &simpleResponse)
+	assert.NoError(t, err, "response was parsed")
+	assert.True(t, simpleResponse.Decision, "check decision is ture")
+}
+
+func TestHandleQueryEvaluation(t *testing.T) {
+	bundleDir := initTestBundlesDir(t)
+	defer cleanup(bundleDir)
+
+	_ = os.Setenv(config.EnvBundleDir, bundleDir)
+	_ = os.Setenv(config.EnvAuthUserPipFile, userHandler.DefaultUserPipFile)
+	az := AuthZenApp{bundleDir: bundleDir}
+	az.Decision = decisionHandler.NewDecisionHandler()
+
+	body := infoModel.QueryRequest{
+		Subject: infoModel.SubjectInfo{Identity: "CiRmZDM2MTRkMy1jMzlhLTQ3ODEtYjdiZC04Yjk2ZjVhNTEwMGQSBWxvY2Fs"},
+		Queries: []infoModel.QueryItem{{
+			Action: "can_update_todo",
+		}},
+	}
+
+	bodyBytes, err := json.Marshal(&body)
+	assert.NoError(t, err, "Check no error serializing request")
+	req, err := http.NewRequest("POST", config.EndpointAuthzenQuery, bytes.NewReader(bodyBytes))
+	req.Header.Set(config.HeaderRequestId, "1234")
+	rr := httptest.NewRecorder()
+	az.HandleQueryEvaluation(rr, req)
+
+	assert.Equal(t, "1234", rr.Header().Get(config.HeaderRequestId), "Check request id is returned")
+	assert.Equal(t, http.StatusNotImplemented, rr.Code, "Request processed ok")
+
 }
