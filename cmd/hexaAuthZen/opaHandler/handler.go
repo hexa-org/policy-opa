@@ -24,12 +24,9 @@ type RegoHandler struct {
 }
 
 func (h *RegoHandler) ReloadRego() error {
-	// regoPath := filepath.Join(h.bundleDir, config.DefRegoPath)
-	// idqlPath := filepath.Join(h.bundleDir, config.DefIdqlPath)
-
-	ctx := context.Background()
-
 	/*
+		regoPath := filepath.Join(h.bundleDir, config.DefRegoPath)
+		idqlPath := filepath.Join(h.bundleDir, config.DefIdqlPath)
 		regoBytes, err := os.ReadFile(regoPath)
 		if err != nil {
 			log.Fatalln("Error reading rego file: " + err.Error())
@@ -47,9 +44,9 @@ func (h *RegoHandler) ReloadRego() error {
 		}
 
 		store := inmem.NewFromObject(dataJson)
-
-
 	*/
+
+	ctx := context.Background()
 	regoHandle := rego.New(
 		rego.EnablePrintStatements(true),
 		rego.Query("data.hexaPolicy"),
