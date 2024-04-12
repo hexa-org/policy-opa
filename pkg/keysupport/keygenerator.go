@@ -7,9 +7,9 @@ This code was pulled and modified from the following resources:
 
 USAGE:
 
-Use the genKeys command to call this routine.
+Use the keyTool command to call this routine.
 
-	go run cmd/genKeys
+	go run cmd/keyTool
 
 This will generate a CA cert/key pair and use that to sign Server cert/key pair
 and Client cert/key pair.
@@ -82,7 +82,7 @@ func GetKeyConfig() KeyConfig {
 	certDir := os.Getenv(EnvCertDirectory)
 	if certDir == "" {
 
-		file := os.Getenv("GOPATH")
+		file := os.Getenv("HOME")
 		certDir = filepath.Join(file, "./.certs")
 		fmt.Println("Defaulting certificate directory to: " + certDir)
 	}
