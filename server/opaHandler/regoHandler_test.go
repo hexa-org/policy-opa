@@ -1,17 +1,19 @@
 package opaHandler
 
 import (
+	"os"
 	"testing"
 
 	infoModel2 "github.com/hexa-org/policy-opa/api/infoModel"
 	opaTools "github.com/hexa-org/policy-opa/client/hexaOpaClient"
+	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/config"
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/userHandler"
 	"github.com/stretchr/testify/assert"
 )
 
 func TestOpaHandler(t *testing.T) {
-	pip := userHandler.NewUserPIP("../resources/users.json")
-
+	pip := userHandler.NewUserPIP("../../deployments/authZen/users.json")
+	_ = os.Setenv(config.EnvBundleDir, "../../deployments/authZen/bundles")
 	// Testing with Beth
 	user := pip.GetUser("CiRmZDM2MTRkMy1jMzlhLTQ3ODEtYjdiZC04Yjk2ZjVhNTEwMGQSBWxvY2Fs")
 	assert.NotNil(t, user, "Get User")
@@ -97,4 +99,6 @@ func TestOpaHandler(t *testing.T) {
 	assert.Equal(t, "true", allowed, "allowed is true")
 	assert.Greater(t, len(aSet), 0, "At least one rule")
 	assert.Greater(t, len(aRights), 0, "At least one right")
+
+	assert.True(t, handler.HealthCheck(), "Check healthcheck works")
 }

@@ -16,6 +16,7 @@ import (
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/decisionHandler"
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/userHandler"
 	"github.com/hexa-org/policy-opa/pkg/compressionsupport"
+	"github.com/hexa-org/policy-opa/pkg/tokensupport"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -166,7 +167,7 @@ func TestHandleEvaluation(t *testing.T) {
 	var simpleResponse infoModel.SimpleResponse
 	err = json.Unmarshal(bodyBytes, &simpleResponse)
 	assert.NoError(t, err, "response was parsed")
-	assert.True(t, simpleResponse.Decision, "check decision is ture")
+	assert.True(t, simpleResponse.Decision, "check decision is true")
 }
 
 func TestHandleQueryEvaluation(t *testing.T) {
@@ -195,4 +196,53 @@ func TestHandleQueryEvaluation(t *testing.T) {
 	assert.Equal(t, "1234", rr.Header().Get(config.HeaderRequestId), "Check request id is returned")
 	assert.Equal(t, http.StatusNotImplemented, rr.Code, "Request processed ok")
 
+}
+
+func TestHandleSecurity(t *testing.T) {
+	bundleDir := initTestBundlesDir(t)
+	defer cleanup(bundleDir)
+
+	tokenHandler, err := tokensupport.GenerateIssuer("authzen", filepath.Join(bundleDir, "certs", tokensupport.DefTknPrivFileName))
+
+	authToken, err := tokenHandler.IssueToken([]string{tokensupport.ScopeDecision}, "handlers@hexa.org")
+	assert.NoError(t, err, "No error generating token")
+
+	_ = os.Setenv(config.EnvBundleDir, bundleDir)
+	_ = os.Setenv(config.EnvAuthUserPipFile, userHandler.DefaultUserPipFile)
+	az := AuthZenApp{bundleDir: bundleDir}
+	az.Decision = decisionHandler.NewDecisionHandler()
+	az.TokenValidator = tokenHandler
+
+	body := infoModel.AuthRequest{
+		Subject: infoModel.SubjectInfo{Identity: "CiRmZDM2MTRkMy1jMzlhLTQ3ODEtYjdiZC04Yjk2ZjVhNTEwMGQSBWxvY2Fs"},
+		Action:  infoModel.ActionInfo{Name: "can_read_todos"},
+	}
+
+	bodyBytes, err := json.Marshal(&body)
+	assert.NoError(t, err, "Check no error serializing request")
+	req, err := http.NewRequest("POST", config.EndpointAuthzenSingleDecision, bytes.NewReader(bodyBytes))
+	req.Header.Set(config.HeaderRequestId, "1234")
+	req.Header.Set("Authorization", "Bearer "+authToken)
+	rr := httptest.NewRecorder()
+	az.HandleEvaluation(rr, req)
+
+	assert.Equal(t, "1234", rr.Header().Get(config.HeaderRequestId), "Check request id is returned")
+	assert.Equal(t, http.StatusOK, rr.Code, "Request processed ok")
+	bodyBytes = rr.Body.Bytes()
+
+	var simpleResponse infoModel.SimpleResponse
+	err = json.Unmarshal(bodyBytes, &simpleResponse)
+	assert.NoError(t, err, "response was parsed")
+	assert.True(t, simpleResponse.Decision, "check decision is ture")
+
+	req.Header.Del("Authorization")
+	rr = httptest.NewRecorder()
+	az.HandleEvaluation(rr, req)
+	assert.Equal(t, http.StatusUnauthorized, rr.Code, "Request is unauthorized")
+
+	req, err = http.NewRequest("GET", config.EndpointGetOpaBundles, nil)
+	req.Header.Set("Authorization", "Bearer "+authToken)
+	rr = httptest.NewRecorder()
+	az.BundleDownload(rr, req)
+	assert.Equal(t, http.StatusForbidden, rr.Code, "Check request is forbidden")
 }

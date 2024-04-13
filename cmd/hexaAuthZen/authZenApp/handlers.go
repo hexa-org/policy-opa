@@ -13,6 +13,7 @@ import (
 	"github.com/hexa-org/policy-opa/api/infoModel"
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/config"
 	"github.com/hexa-org/policy-opa/pkg/compressionsupport"
+	"github.com/hexa-org/policy-opa/pkg/tokensupport"
 )
 
 func (az *AuthZenApp) Index(w http.ResponseWriter, r *http.Request) {
@@ -20,8 +21,22 @@ func (az *AuthZenApp) Index(w http.ResponseWriter, r *http.Request) {
 	_, _ = fmt.Fprintf(w, "Hello %s", test)
 }
 
+func (az *AuthZenApp) checkAuthorization(scopes []string, r *http.Request) int {
+	if az.TokenValidator != nil {
+		_, stat := az.TokenValidator.ValidateAuthorization(r, scopes)
+		return stat
+	}
+	return http.StatusOK // For tests, just return ok when token validator not initialized
+}
+
 func (az *AuthZenApp) HandleEvaluation(w http.ResponseWriter, r *http.Request) {
 	requestId := r.Header.Get(config.HeaderRequestId)
+	authStatus := az.checkAuthorization([]string{tokensupport.ScopeDecision}, r)
+	if authStatus != http.StatusOK {
+		w.WriteHeader(authStatus)
+		return
+	}
+
 	var jsonRequest infoModel.AuthRequest
 	err := json.NewDecoder(r.Body).Decode(&jsonRequest)
 	if err != nil {
@@ -54,6 +69,11 @@ func (az *AuthZenApp) HandleEvaluation(w http.ResponseWriter, r *http.Request) {
 
 func (az *AuthZenApp) HandleQueryEvaluation(w http.ResponseWriter, r *http.Request) {
 	requestId := r.Header.Get(config.HeaderRequestId)
+	authStatus := az.checkAuthorization([]string{tokensupport.ScopeDecision}, r)
+	if authStatus != http.StatusOK {
+		w.WriteHeader(authStatus)
+		return
+	}
 
 	var jsonRequest infoModel.QueryRequest
 	err := json.NewDecoder(r.Body).Decode(&jsonRequest)
@@ -122,6 +142,11 @@ func (az *AuthZenApp) saveExistingBundle() (string, error) {
 }
 
 func (az *AuthZenApp) BundleUpload(writer http.ResponseWriter, r *http.Request) {
+	authStatus := az.checkAuthorization([]string{tokensupport.ScopeBundle}, r)
+	if authStatus != http.StatusOK {
+		writer.WriteHeader(authStatus)
+		return
+	}
 	_ = r.ParseMultipartForm(32 << 20)
 	bundleFile, _, err := r.FormFile("bundle")
 	if err != nil {
@@ -156,8 +181,12 @@ func (az *AuthZenApp) getTarBundle() ([]byte, error) {
 	return compressionsupport.TarFromPath(fmt.Sprintf("%s/%s", az.bundleDir, "bundle"))
 }
 
-func (az *AuthZenApp) BundleDownload(writer http.ResponseWriter, _ *http.Request) {
-
+func (az *AuthZenApp) BundleDownload(writer http.ResponseWriter, r *http.Request) {
+	authStatus := az.checkAuthorization([]string{tokensupport.ScopeBundle}, r)
+	if authStatus != http.StatusOK {
+		writer.WriteHeader(authStatus)
+		return
+	}
 	tar, _ := az.getTarBundle()
 	writer.Header().Set("Content-Type", "application/gzip")
 	_ = compressionsupport.Gzip(writer, tar)

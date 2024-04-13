@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/hexa-org/policy-opa/api/infoModel"
+	"github.com/hexa-org/policy-opa/client/hexaOpaClient"
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/config"
 	"github.com/hexa-org/policy-opa/server/conditionEvaluator"
 	"github.com/hexa-org/policy-opa/server/hexaFilter"
@@ -23,29 +24,18 @@ type RegoHandler struct {
 	bundleDir string
 }
 
+func (h *RegoHandler) HealthCheck() bool {
+	// Runs a check to see if OPA is still working
+	input := hexaOpaClient.OpaInfo{}
+	eval, err := h.query.Eval(context.Background(), rego.EvalInput(input))
+	if err != nil {
+		fmt.Println("Health check failed: " + err.Error())
+		return false
+	}
+	return eval != nil
+}
+
 func (h *RegoHandler) ReloadRego() error {
-	/*
-		regoPath := filepath.Join(h.bundleDir, config.DefRegoPath)
-		idqlPath := filepath.Join(h.bundleDir, config.DefIdqlPath)
-		regoBytes, err := os.ReadFile(regoPath)
-		if err != nil {
-			log.Fatalln("Error reading rego file: " + err.Error())
-		}
-		regoString := string(regoBytes)
-
-		dataBytes, err := os.ReadFile(idqlPath)
-		if err != nil {
-			log.Fatalln("Error reading data file: " + err.Error())
-		}
-		var dataJson map[string]interface{}
-		err = util.UnmarshalJSON(dataBytes, &dataJson)
-		if err != nil {
-			log.Fatalln("Error parsing data file: " + err.Error())
-		}
-
-		store := inmem.NewFromObject(dataJson)
-	*/
-
 	ctx := context.Background()
 	regoHandle := rego.New(
 		rego.EnablePrintStatements(true),
@@ -98,6 +88,8 @@ func NewRegoHandler() *RegoHandler {
 		fmt.Println("Environment variable BUNDLE_DIR not defined, defaulting..")
 		bundleDir = config.DefBundlePath
 	}
+
+	// TODO: Check if bundleDir is empty. If so, create a default bundle
 
 	handler := &RegoHandler{
 		bundleDir: bundleDir,

@@ -5,7 +5,9 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/config"
-	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/hexa-org/policy-opa/pkg/healthsupport"
+	"github.com/hexa-org/policy-opa/pkg/metricssupport"
+	"github.com/hexa-org/policy-opa/pkg/websupport"
 )
 
 type Route struct {
@@ -46,7 +48,7 @@ func NewRouter(application *AuthZenApp) *HttpRouter {
 				Path(route.Pattern).
 				Name(route.Name).
 				Handler(handler).
-				Queries("stream_id", "{stream_id:[a-fA-F0-9]+}")
+				Queries("id", "{id:[a-fA-F0-9]+}")
 		} else {
 			httpRouter.router.
 				Methods(route.Method).
@@ -58,9 +60,36 @@ func NewRouter(application *AuthZenApp) *HttpRouter {
 	}
 
 	// Add prometheus handler at metrics endpoint
-	httpRouter.router.Path("/metrics").Handler(promhttp.Handler())
+	options := websupport.Options{}
+	checks := options.HealthChecks
+	if checks == nil || len(checks) == 0 {
+		checks = append(checks, &AuthZenHealthCheck{App: application})
+	}
+
+	router := httpRouter.router
+	router.Use(metricssupport.MetricsMiddleware)
+	router.HandleFunc("/health",
+		func(w http.ResponseWriter, r *http.Request) {
+			healthsupport.HealthHandlerFunctionWithChecks(w, r, checks)
+		},
+	).Methods("GET")
+	router.Path("/metrics").Handler(metricssupport.MetricsHandler())
 
 	return &httpRouter
+}
+
+type AuthZenHealthCheck struct {
+	App *AuthZenApp
+}
+
+type HealthInfo struct {
+	Status string `json:"status"`
+}
+
+func (h *AuthZenHealthCheck) Name() string { return "HexaAuthZen" }
+
+func (h *AuthZenHealthCheck) Check() bool {
+	return h.App.Decision != nil && h.App.Decision.HealthCheck()
 }
 
 func (h *HttpRouter) getRoutes() Routes {

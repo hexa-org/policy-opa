@@ -55,6 +55,10 @@ func (d *DecisionHandler) createInputObjectSimple(authRequest infoModel2.AuthReq
 
 }
 
+func (d *DecisionHandler) HealthCheck() bool {
+	return d.regoHandler != nil && d.regoHandler.HealthCheck()
+}
+
 /*
 ProcessDecision takes an AuthZen AuthRequest, generates a Hexa OPA input object that combines resource, subject, and
 request information and calls the HexaOPA decision engine and parses the results.

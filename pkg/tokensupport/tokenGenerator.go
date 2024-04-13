@@ -24,8 +24,9 @@ const (
 	ScopeBundle        string = "bundle"
 	ScopeDecision      string = "az"
 	ScopeAdmin         string = "root"
-	EnvTknKeyDirectory string = "HEXA_TKN_DIRECTORY"
-	EnvTknPrivKeyFile  string = "HEXA_TKN_PRIVKEYFILE"
+	EnvTknKeyDirectory string = "AUTHZEN_TKN_DIRECTORY"
+	EnvTknPrivKeyFile  string = "AUTHZEN_TKN_PRIVKEYFILE"
+	EnvAllowAnon       string = "AUTHZEN_TKN_DISABLE"
 	DefTknPrivFileName string = "issuer-priv.pem"
 	TknIssuePubKeyFile string = "issuer-cert.pem"
 )
@@ -37,14 +38,21 @@ type JwtAuthToken struct {
 }
 
 type TokenHandler struct {
-	TokenIssuer string
-	PrivateKey  *rsa.PrivateKey
-	PublicKey   *keyfunc.JWKS
-	KeyDir      string
-	PrivKeyPath string
+	TokenIssuer       string
+	PrivateKey        *rsa.PrivateKey
+	PublicKey         *keyfunc.JWKS
+	KeyDir            string
+	PrivKeyPath       string
+	DisableValidation bool
 }
 
 func getConfig(privKeyfile string) *TokenHandler {
+	disableValidationString := os.Getenv(EnvAllowAnon)
+	disableValidation := false
+	if disableValidationString != "" && strings.EqualFold(disableValidationString, "true") {
+		disableValidation = true
+	}
+
 	dirPath := os.Getenv(EnvTknKeyDirectory)
 	if privKeyfile == "" {
 		privKeyfile = os.Getenv(EnvTknPrivKeyFile)
@@ -67,8 +75,9 @@ func getConfig(privKeyfile string) *TokenHandler {
 	}
 
 	return &TokenHandler{
-		KeyDir:      dirPath,
-		PrivKeyPath: privKeyfile,
+		KeyDir:            dirPath,
+		PrivKeyPath:       privKeyfile,
+		DisableValidation: disableValidation,
 	}
 }
 
@@ -184,6 +193,9 @@ func (a *TokenHandler) IssueToken(scopes []string, email string) (string, error)
 // ValidateAuthorization evaluates the authorization header and checks to see if the correct scope is asserted.
 // 200 OK means authorized. Forbidden returned if wrong scope, otherwise unauthorized
 func (a *TokenHandler) ValidateAuthorization(r *http.Request, scopes []string) (*JwtAuthToken, int) {
+	if a.DisableValidation {
+		return nil, http.StatusOK // Anonymous mode should only be used for testing!
+	}
 	authorization := r.Header.Get("Authorization")
 
 	if authorization == "" {
