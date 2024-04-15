@@ -202,7 +202,8 @@ func TestHandleSecurity(t *testing.T) {
 	bundleDir := initTestBundlesDir(t)
 	defer cleanup(bundleDir)
 
-	tokenHandler, err := tokensupport.GenerateIssuer("authzen", filepath.Join(bundleDir, "certs", tokensupport.DefTknPrivFileName))
+	os.Setenv(tokensupport.EnvTknPrivateKeyFile, filepath.Join(bundleDir, "certs", tokensupport.DefTknPrivateKeyFile))
+	tokenHandler, err := tokensupport.GenerateIssuerKeys("authzen", false)
 
 	authToken, err := tokenHandler.IssueToken([]string{tokensupport.ScopeDecision}, "handlers@hexa.org")
 	assert.NoError(t, err, "No error generating token")

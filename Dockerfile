@@ -18,6 +18,7 @@ USER ${USER}
 
 ADD --chmod=ug+x ./hexaOpa ./hexaOpa
 ADD --chmod=ug+x ./testBundleServer ./testBundleServer
+ADD --chmod=ug+x ./hexaAuthZen ./hexaAuthZen
 
 # Optional:
 # To bind to a TCP port, runtime parameters must be supplied to the docker command.

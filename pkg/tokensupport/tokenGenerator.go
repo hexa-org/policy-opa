@@ -21,14 +21,15 @@ import (
 )
 
 const (
-	ScopeBundle        string = "bundle"
-	ScopeDecision      string = "az"
-	ScopeAdmin         string = "root"
-	EnvTknKeyDirectory string = "AUTHZEN_TKN_DIRECTORY"
-	EnvTknPrivKeyFile  string = "AUTHZEN_TKN_PRIVKEYFILE"
-	EnvAllowAnon       string = "AUTHZEN_TKN_DISABLE"
-	DefTknPrivFileName string = "issuer-priv.pem"
-	TknIssuePubKeyFile string = "issuer-cert.pem"
+	ScopeBundle          string = "bundle"
+	ScopeDecision        string = "az"
+	ScopeAdmin           string = "root"
+	EnvTknKeyDirectory   string = "AUTHZEN_TKN_DIRECTORY"
+	EnvTknPrivateKeyFile string = "AUTHZEN_TKN_PRIVKEYFILE"
+	EnvTknPubKeyFile     string = "AUTHZEN_TKN_PUBKEYFILE"
+	EnvAllowAnon         string = "AUTHZEN_TKN_DISABLE"
+	DefTknPrivateKeyFile string = "issuer-priv.pem"
+	DefTknPublicKeyFile  string = "issuer-cert.pem"
 )
 
 type JwtAuthToken struct {
@@ -42,49 +43,71 @@ type TokenHandler struct {
 	PrivateKey        *rsa.PrivateKey
 	PublicKey         *keyfunc.JWKS
 	KeyDir            string
-	PrivKeyPath       string
+	PrivateKeyPath    string
+	PublicKeyPath     string
 	DisableValidation bool
 }
 
-func getConfig(privKeyfile string) *TokenHandler {
+func (a *TokenHandler) PrivateKeyExists() bool {
+	stat, err := os.Stat(a.PrivateKeyPath)
+	return err == nil && !stat.IsDir()
+}
+
+func getConfig() *TokenHandler {
 	disableValidationString := os.Getenv(EnvAllowAnon)
 	disableValidation := false
 	if disableValidationString != "" && strings.EqualFold(disableValidationString, "true") {
 		disableValidation = true
 	}
-
-	dirPath := os.Getenv(EnvTknKeyDirectory)
-	if privKeyfile == "" {
-		privKeyfile = os.Getenv(EnvTknPrivKeyFile)
-		if privKeyfile == "" {
-			if dirPath == "" {
-				file := os.Getenv("HOME")
-				dirPath = filepath.Join(file, "./.certs")
+	privateKeyPath := os.Getenv(EnvTknPrivateKeyFile)
+	publicKeyPath := os.Getenv(EnvTknPubKeyFile)
+	keyDir := os.Getenv(EnvTknKeyDirectory)
+	if keyDir == "" {
+		if privateKeyPath == "" {
+			if publicKeyPath == "" {
+				// Default everything
+				home := os.Getenv("HOME")
+				fmt.Println(fmt.Sprintf("HOME=[%s]", home))
+				keyDir = filepath.Join(home, "./.certs")
+				fmt.Println(fmt.Sprintf("Setting default key directory of: %s", keyDir))
+			} else {
+				// This is likely just a validator
+				keyDir = filepath.Dir(publicKeyPath)
 			}
-			privKeyfile = filepath.Join(dirPath, DefTknPrivFileName)
+		} else {
+			// This is likely an issuer
+			keyDir = filepath.Dir(privateKeyPath)
 		}
 	}
-	if dirPath == "" {
-		dirPath, _ = filepath.Split(privKeyfile)
-	}
 
-	fmt.Println("Using key directory: " + dirPath)
-	err := os.MkdirAll(dirPath, 0755)
+	fmt.Println("Using key directory: " + keyDir)
+	err := os.MkdirAll(keyDir, 0755)
 	if err != nil {
-		panic(fmt.Sprintf("Was unable to open or create certificate directory(%s):%s", dirPath, err))
+		panic(fmt.Sprintf("Was unable to open or create certificate directory(%s):%s", keyDir, err))
 	}
 
+	if privateKeyPath == "" {
+		privateKeyPath = filepath.Join(keyDir, DefTknPrivateKeyFile)
+	}
+
+	if publicKeyPath == "" {
+		publicKeyPath = filepath.Join(keyDir, DefTknPublicKeyFile)
+	}
 	return &TokenHandler{
-		KeyDir:            dirPath,
-		PrivKeyPath:       privKeyfile,
+		KeyDir:            keyDir,
+		PublicKeyPath:     publicKeyPath,
+		PrivateKeyPath:    privateKeyPath,
 		DisableValidation: disableValidation,
 	}
+
 }
 
-func TokenValidator(name string, publicKeyFile string) (*TokenHandler, error) {
-	pemBytes, err := os.ReadFile(publicKeyFile)
+func TokenValidator(name string) (*TokenHandler, error) {
+	valConfig := getConfig()
+
+	pemBytes, err := os.ReadFile(valConfig.PublicKeyPath)
 	if err != nil {
-		return nil, err
+		return nil, errors.New(fmt.Sprintf("Unalbe to load public key (%s): %s", valConfig.PublicKeyPath, err.Error()))
 	}
 
 	derBlock, _ := pem.Decode(pemBytes)
@@ -94,7 +117,6 @@ func TokenValidator(name string, publicKeyFile string) (*TokenHandler, error) {
 	}
 
 	pubKey := convertJWKS(name, publicKey)
-
 	return &TokenHandler{
 		TokenIssuer: name,
 		PublicKey:   pubKey,
@@ -111,27 +133,41 @@ func convertJWKS(name string, pubKey *rsa.PublicKey) *keyfunc.JWKS {
 	return keyfunc.NewGiven(givenKeys)
 }
 
-func LoadIssuer(name string, privateKeyFile string) (*TokenHandler, error) {
-	handler := getConfig(privateKeyFile)
-	pemBytes, err := os.ReadFile(handler.PrivKeyPath)
+func (a *TokenHandler) loadIssuer(name string) error {
+	pemBytes, err := os.ReadFile(a.PrivateKeyPath)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	derBlock, _ := pem.Decode(pemBytes)
 
 	privateKey, err := x509.ParsePKCS1PrivateKey(derBlock.Bytes)
 	if err != nil {
-		return nil, err
+		return err
 	}
-	handler.TokenIssuer = name
-	handler.PrivateKey = privateKey
-	handler.PublicKey = convertJWKS(name, &privateKey.PublicKey)
-	return handler, nil
+	a.TokenIssuer = name
+	a.PrivateKey = privateKey
+	a.PublicKey = convertJWKS(name, &privateKey.PublicKey)
+
+	return nil
 }
 
-func GenerateIssuer(name string, privateKeyFile string) (*TokenHandler, error) {
-	handler := getConfig(privateKeyFile)
+func LoadIssuer(name string) (*TokenHandler, error) {
+	handler := getConfig()
+	return handler, handler.loadIssuer(name)
+}
+
+/*
+GenerateIssuerKeys will create a new JWT issuer private and public key set. Set keepExisting to
+true to enable auto-generation on first execution.
+*/
+func GenerateIssuerKeys(name string, keepExisting bool) (*TokenHandler, error) {
+	handler := getConfig()
+
+	if handler.PrivateKeyExists() && keepExisting {
+		// This enables docker services to auto generate on first execution.
+		return handler, handler.loadIssuer(name)
+	}
 
 	privateKey, err := rsa.GenerateKey(rand.Reader, 4096)
 	if err != nil {
@@ -153,13 +189,13 @@ func GenerateIssuer(name string, privateKeyFile string) (*TokenHandler, error) {
 		Bytes: pubKeyBytes,
 	})
 
-	err = os.WriteFile(handler.PrivKeyPath, privateKeyPEM.Bytes(), 0644)
+	err = os.WriteFile(handler.PrivateKeyPath, privateKeyPEM.Bytes(), 0644)
 	if err != nil {
 		fmt.Printf("Error writing key file: %s", err.Error())
 		return nil, err
 	}
 
-	pubKeyFile := filepath.Join(handler.KeyDir, TknIssuePubKeyFile)
+	pubKeyFile := filepath.Join(handler.KeyDir, DefTknPublicKeyFile)
 	err = os.WriteFile(pubKeyFile, pubKeyPEM.Bytes(), 0644)
 
 	handler.TokenIssuer = name
@@ -225,7 +261,7 @@ func (a *TokenHandler) ValidateAuthorization(r *http.Request, scopes []string) (
 // ParseAuthToken parses and validates an authorization token. An *JwtAuthToken is only returned if the token was validated otherwise nil
 func (a *TokenHandler) ParseAuthToken(tokenString string) (*JwtAuthToken, error) {
 	if a.PublicKey == nil {
-		return nil, errors.New("ERROR: No public key provided to validate authorization token.")
+		return nil, errors.New("no public key provided to validate authorization token")
 	}
 
 	// In case of cut/paste error, trim extra spaces
@@ -238,7 +274,7 @@ func (a *TokenHandler) ParseAuthToken(tokenString string) (*JwtAuthToken, error)
 		log.Printf("Error validating token: %s", err.Error())
 		valid = false
 	}
-	if token.Header["typ"] != "jwt" {
+	if token == nil || token.Header["typ"] != "jwt" {
 		log.Printf("token is not an authorization token (JWT)")
 		return nil, errors.New("token type is not an authorization token (`jwt`)")
 	}

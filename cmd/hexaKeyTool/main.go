@@ -1,10 +1,11 @@
 /*
-keyTool is a command line tool that can be used to generate a set of self-signed keys for use by
-the testBundleServer and hexaOpa server.
+hexaKeyTool is a command line tool that can be used to generate a set of self-signed keys for use by
+the testBundleServer, hexaOpa server, and the Hexa AuthZen server.
 
 USAGE:
 
-	go run main.go
+	hexaKeyTool -type=tls
+	hexaKeyTool -type=jwt -action=init -dir=./certs
 
 This will generate a CA cert/key pair and use that to sign Server cert/key pair
 and Client cert/key pair.
@@ -24,7 +25,7 @@ import (
 	"github.com/hexa-org/policy-opa/pkg/tokensupport"
 )
 
-func doServer() {
+func doTlsKeys() {
 	config := keysupport.GetKeyConfig()
 	// get our ca and server certificate
 	err := config.CreateSelfSignedKeys()
@@ -44,21 +45,40 @@ func main() {
 	keyfileFlag := flag.String("keyfile", "", "Path to existing private key")
 	scopeFlag := flag.String("scopes", "az", "az,bundle,root")
 	mailFlag := flag.String("mail", "", "email address for user of token")
+	helpFlag := flag.Bool("help", false, "To return help")
+
 	flag.Parse()
+
+	arg := flag.Arg(0)
+	if (helpFlag != nil && *helpFlag) || strings.EqualFold("help", arg) {
+		fmt.Println(`
+Keytool generates certificates and tokens for use with the Hexa Bundle Server and AuthZen server
+
+To generate TLS certificates for the bundle server use:
+keytool -type=tls
+
+To create a JWT certificate issuer use
+keytool -type=jwt --action=init --dir=./certs`)
+		return
+	}
+
+	if dirFlag != nil {
+		os.Setenv(tokensupport.EnvTknKeyDirectory, *dirFlag)
+	}
 
 	switch strings.ToLower(*typeFlag) {
 	case "tls":
-		doServer()
+		doTlsKeys()
 	case "jwt":
 		_, err := os.Stat(*dirFlag)
 		if os.IsNotExist(err) {
 			_ = os.Mkdir(*dirFlag, 0755)
 		}
-		keyFileName := filepath.Join(*dirFlag, tokensupport.DefTknPrivFileName)
+		keyFileName := filepath.Join(*dirFlag, tokensupport.DefTknPrivateKeyFile)
 
 		switch strings.ToLower(*cmdFlag) {
 		case "init":
-			handler, err := tokensupport.GenerateIssuer("authzen", keyFileName)
+			handler, err := tokensupport.GenerateIssuerKeys("authzen", false)
 			if err != nil {
 				fmt.Println(err.Error())
 				return
@@ -66,12 +86,17 @@ func main() {
 			fmt.Println(fmt.Sprintf("Token public and private keys generated in %s", handler.KeyDir))
 		case "issue":
 			useKey := keyFileName
-			if *keyfileFlag != "" {
+			if keyfileFlag != nil && *keyfileFlag != "" {
 				useKey = *keyfileFlag
 			}
-			handler, err := tokensupport.LoadIssuer("authzen", useKey)
+			os.Setenv(tokensupport.EnvTknPrivateKeyFile, useKey)
+			handler, err := tokensupport.LoadIssuer("authzen")
 			if err != nil {
 				fmt.Println(err.Error())
+				return
+			}
+			if scopeFlag == nil || *scopeFlag == "" {
+				fmt.Println("Missing value for --scopes")
 				return
 			}
 			scopes := strings.Split(strings.ToLower(*scopeFlag), ",")
@@ -84,7 +109,7 @@ func main() {
 					return
 				}
 			}
-			if *mailFlag == "" {
+			if mailFlag == nil || *mailFlag == "" {
 				fmt.Println("An email address (-mail) is required for the user of the token")
 				return
 			}

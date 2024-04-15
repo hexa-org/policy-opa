@@ -85,7 +85,7 @@ func NewRegoHandler() *RegoHandler {
 	bundleDir := os.Getenv(config.EnvBundleDir)
 	if bundleDir == "" {
 		// If a relative path is used, then join with the current executable path...
-		fmt.Println("Environment variable BUNDLE_DIR not defined, defaulting..")
+		fmt.Println("Environment variable AUTHZEN_BUNDLE_DIR not defined, defaulting..")
 		bundleDir = config.DefBundlePath
 	}
 

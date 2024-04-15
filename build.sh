@@ -1,10 +1,14 @@
 echo "This builds a docker image for local execution"
 
-echo "  building go linux image for ..."
+echo "  building go linux container image ..."
 CGO_ENABLED=0 GOOS=linux go build -o ./hexaOpa  cmd/hexaOpa/main.go
 CGO_ENABLED=0 GOOS=linux go build -o ./testBundleServer cmd/testBundleServer/main.go
+CGO_ENABLED=0 GOOS=linux go build -o ./hexaAuthZen cmd/hexaAuthZen/main.go
 
-echo "  building docker image..."
+echo "  building hexaKeyTool ..."
+go build -o ./hexaKeyTool cmd/hexaKeyTool/main.go
+
+echo "  building docker container image..."
 docker build --tag hexaopa .
 
-echo "  Build complete. Execute using 'docker run hexaopa'"
+echo "  Build complete. Execute using docker compose"

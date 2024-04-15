@@ -7,9 +7,9 @@ This code was pulled and modified from the following resources:
 
 USAGE:
 
-Use the keyTool command to call this routine.
+Use the hexaKeyTool command to call this routine.
 
-	go run cmd/keyTool
+	go run cmd/hexaKeyTool
 
 This will generate a CA cert/key pair and use that to sign Server cert/key pair
 and Client cert/key pair.

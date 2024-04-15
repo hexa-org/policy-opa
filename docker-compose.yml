@@ -34,3 +34,17 @@ services:
       - "./deployments/hexaOpaServer/config:/home/config:ro"
       - "./deployments/hexaOpaServer/.opa:/app/.opa"
       - "./.certs:/home/certs:ro"
+  hexa-authzen:
+    image: hexaopa
+    ports: "8888:8888"
+    command: /app/hexaAuthZen
+    environment:
+      PORT: 8888
+      AUTHZEN_BUNDLE_DIR: "/home/authZen/bundles"
+      AUTHZEN_USERPIP_FILE: "/home/authZen/users.json"
+      AUTHZEN_TOKEN_DIRECTORY: "/home/certs"
+    volumes:
+      - "./deployments/authZen:/home/authZen"
+      - "./.certs:/home/certs:ro"
+
+

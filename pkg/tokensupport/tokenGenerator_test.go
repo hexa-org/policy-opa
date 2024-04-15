@@ -20,14 +20,18 @@ type testSuite struct {
 
 func TestTokenGenerator(t *testing.T) {
 	path, _ := os.MkdirTemp("", "token-*")
-	keyfile := filepath.Join(path, DefTknPrivFileName)
-	handler, err := GenerateIssuer("authzen", keyfile)
+
+	_ = os.Setenv(EnvTknKeyDirectory, path)
+	_ = os.Unsetenv(EnvTknPubKeyFile)
+	_ = os.Unsetenv(EnvTknPrivateKeyFile)
+
+	handler, err := GenerateIssuerKeys("authzen")
 	assert.NoError(t, err, "Check no error generating issuer")
 	assert.Equal(t, "authzen", handler.TokenIssuer, "Check issuer set")
 	s := testSuite{
 		Suite:   suite.Suite{},
 		keyDir:  path,
-		keyfile: keyfile,
+		keyfile: handler.PrivateKeyPath,
 		Handler: handler,
 	}
 	suite.Run(t, &s)
@@ -51,14 +55,17 @@ func (s *testSuite) TestGenerateIssuer() {
 
 func (s *testSuite) TestLoadExisting() {
 
-	handler2, err := LoadIssuer("authzen", s.keyfile)
+	handler2, err := LoadIssuer("authzen")
 	assert.NoError(s.T(), err, "No error on load")
 	assert.NotNil(s.T(), handler2.PrivateKey, "Check private key loaded")
 }
 
 func (s *testSuite) TestIssueAndValidateToken() {
 	fmt.Println("Loading validator...")
-	validator, err := TokenValidator("authzen", filepath.Join(s.keyDir, TknIssuePubKeyFile))
+	_ = os.Unsetenv(EnvTknKeyDirectory)
+	_ = os.Unsetenv(EnvTknPrivateKeyFile)
+	_ = os.Setenv(EnvTknPubKeyFile, filepath.Join(s.keyDir, DefTknPublicKeyFile))
+	validator, err := TokenValidator("authzen")
 	assert.NoError(s.T(), err, "No error on load")
 	assert.NotNil(s.T(), validator, "Check validator not null")
 

@@ -6,8 +6,9 @@ import (
 )
 
 const (
-	EnvAuthUserPipFile            string = "AUTHZ_USERPIPFILE"
-	EnvBundleDir                  string = "BUNDLE_DIR"
+	HexaAuthZenVersion            string = "0.53.0b"
+	EnvAuthUserPipFile            string = "AUTHZEN_USERPIP_FILE"
+	EnvBundleDir                  string = "AUTHZEN_BUNDLE_DIR"
 	EndpointAuthzenSingleDecision string = "/access/v1/evaluation"
 	EndpointAuthzenQuery          string = "/access/v1/evaluations"
 	EndpointOpaBundles            string = "/bundles"
