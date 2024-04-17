@@ -1,11 +1,13 @@
 package metricssupport
 
 import (
-	"log"
 	"net/http"
 	"strings"
 
 	"github.com/gorilla/mux"
+	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/config"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/promauto"
 )
 
 type metricsHandler struct {
@@ -21,6 +23,24 @@ func MetricsHandler() http.Handler {
 	return metricsHandler{}
 }
 
+var (
+	httpDuration = promauto.NewHistogramVec(prometheus.HistogramOpts{
+		Name: "hexaAuthZen_http_duration_seconds",
+		Help: "Duration of HTTP requests.",
+	}, []string{"path"})
+)
+
+func PrometheusHttpMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// log.Println("*** GoSignals Prometheus handler called!!")
+		route := mux.CurrentRoute(r)
+		path, _ := route.GetPathTemplate()
+		timer := prometheus.NewTimer(httpDuration.WithLabelValues(path))
+		next.ServeHTTP(w, r)
+		timer.ObserveDuration()
+	})
+}
+
 func MetricsMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		for _, s := range []string{"/styles", "/images"} {
@@ -31,7 +51,7 @@ func MetricsMiddleware(next http.Handler) http.Handler {
 		}
 		route := mux.CurrentRoute(r)
 		path, _ := route.GetPathTemplate()
-		log.Printf("Collecting metrics for path %v\n", path)
+		config.ServerLog.Printf("Returning metrics: %v\n", path)
 		next.ServeHTTP(w, r)
 	})
 }

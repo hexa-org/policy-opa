@@ -5,14 +5,13 @@ package main
 
 import (
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/authZenApp"
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/config"
 )
 
-var mLog = log.New(os.Stdout, "MAIN:   ", log.Ldate|log.Ltime)
+var mLog = config.ServerLog
 
 func main() {
 	mLog.Printf("Hexa AuthZen Server starting...")

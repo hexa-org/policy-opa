@@ -35,8 +35,10 @@ services:
       - "./deployments/hexaOpaServer/.opa:/app/.opa"
       - "./.certs:/home/certs:ro"
   hexa-authzen:
+    container_name: hexa-authzen
     image: hexaopa
-    ports: "8888:8888"
+    ports:
+      - "8888:8888"
     command: /app/hexaAuthZen
     environment:
       PORT: 8888

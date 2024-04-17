@@ -31,10 +31,9 @@ func NewRouter(application *AuthZenApp) *HttpRouter {
 		az:     application,
 	}
 
-	/*
-		// Add the Prometheus middleware first so logging happens inside
-		httpRouter.router.Use(PrometheusHttpMiddleware)
-	*/
+	// Add the Prometheus middleware first so logging happens inside
+	httpRouter.router.Use(metricssupport.PrometheusHttpMiddleware)
+
 	// httpRouter.router.Use()
 	routes := httpRouter.getRoutes()
 

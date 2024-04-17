@@ -59,12 +59,12 @@ func (az *AuthZenApp) HandleEvaluation(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set(config.HeaderRequestId, requestId)
 	}
 
+	w.WriteHeader(status)
 	if resp != nil {
 		bodyBytes, _ := json.Marshal(resp)
 		_, _ = w.Write(bodyBytes)
 	}
 
-	w.WriteHeader(status)
 }
 
 func (az *AuthZenApp) HandleQueryEvaluation(w http.ResponseWriter, r *http.Request) {
@@ -129,12 +129,12 @@ func (az *AuthZenApp) saveExistingBundle() (string, error) {
 		if name == saveDir {
 			continue
 		}
-		fmt.Println("moving: " + name)
+		config.ServerLog.Println("saving: " + name)
 		dest := filepath.Join(savePath, name)
 		source := filepath.Join(az.bundleDir, name)
 		err := os.Rename(source, dest)
 		if err != nil {
-			fmt.Println("Error moving file: " + err.Error())
+			config.ServerLog.Println("Error moving file: " + err.Error())
 		}
 	}
 
@@ -150,12 +150,12 @@ func (az *AuthZenApp) BundleUpload(writer http.ResponseWriter, r *http.Request) 
 	_ = r.ParseMultipartForm(32 << 20)
 	bundleFile, _, err := r.FormFile("bundle")
 	if err != nil {
-		fmt.Println(err.Error())
+		config.ServerLog.Println(fmt.Sprintf("Error retrieving bundle file: %s", err.Error()))
 	}
 	gzip, _ := compressionsupport.UnGzip(bundleFile)
 	rand.New(rand.NewSource(time.Now().UnixNano()))
 
-	config.ServerLog.Println("Saving existing bundle")
+	config.ServerLog.Println("Saving current bundle")
 	restorePath, err := az.saveExistingBundle()
 	if err != nil {
 		handleError("Error updating bundle", err, writer, http.StatusInternalServerError)
