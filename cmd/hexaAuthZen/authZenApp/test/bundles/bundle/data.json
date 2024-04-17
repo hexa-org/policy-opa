@@ -70,7 +70,7 @@
         }
       ],
       "condition": {
-        "rule": "subject.roles co evil_genius or resource.ownerid eq subject.claims.email",
+        "rule": "subject.roles co evil_genius or ( subject.roles co editor and resource.ownerID eq subject.claims.id )",
         "action": "allow"
       },
       "object": {
@@ -92,7 +92,7 @@
         }
       ],
       "condition": {
-        "rule": "subject.roles co admin or resource.ownerid eq subject.claims.email",
+        "rule": "subject.roles co admin or ( subject.roles co editor and resource.ownerID eq subject.claims.id )",
         "action": "allow"
       },
       "object": {

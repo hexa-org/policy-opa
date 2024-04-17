@@ -59,6 +59,9 @@ var tests = []testType{
 	{"4 lt dlevel", true, ""},
 	{"1.1 lt dlevel", true, ""},
 	{"dlevel lt 100", true, ""},
+	{"subject.roles co bleh or (subject.roles co b and level eq 4)", true, ""},
+	{"subject.roles co a or (subject.roles co bleh and level eq 4)", true, ""},
+	{"subject.roles co bleh or (subject.roles co b and level eq 5)", false, ""},
 }
 
 func TestEvaluate(t *testing.T) {

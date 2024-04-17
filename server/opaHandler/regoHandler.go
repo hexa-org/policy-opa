@@ -136,9 +136,12 @@ func (h *RegoHandler) ProcessResults(results rego.ResultSet) (string, []string, 
 	allowSet := strings.FieldsFunc(allowString, func(r rune) bool {
 		return strings.ContainsRune("[ ]", r)
 	})
-	fmt.Println("allowed:     \t" + allowed)
-	fmt.Println("actionRights:\t" + rights)
-	fmt.Println("allowSet:    \t" + allowString)
+
+	/*
+		fmt.Println("allowed:     \t" + allowed)
+		fmt.Println("actionRights:\t" + rights)
+		fmt.Println("allowSet:    \t" + allowString)
+	*/
 
 	return allowed, allowSet, actionRights
 }

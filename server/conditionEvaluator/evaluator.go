@@ -3,6 +3,7 @@ package conditionEvaluator
 import (
 	"errors"
 	"fmt"
+	"log"
 	"strconv"
 
 	"strings"
@@ -22,6 +23,7 @@ Evaluate takes in an IDQL expression, parses it, and then compares against the i
 func Evaluate(expression string, input string) (bool, error) {
 	ast, err := conditions.ParseExpressionAst(expression)
 	if err != nil {
+		log.Print("condition evaluation error: " + err.Error())
 		return false, err
 	}
 	return evalWalk(*ast, input)
@@ -64,6 +66,10 @@ func evalWalk(e filter.Expression, input string) (bool, error) {
 			return true, nil
 		}
 		return evalWalk(v.Right, input)
+
+	case filter.PrecedenceExpression:
+		subExpression := v.Expression
+		return evalWalk(subExpression, input)
 
 	case filter.NotExpression:
 		subExpression := v.Expression

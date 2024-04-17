@@ -234,7 +234,7 @@ func TestHandleSecurity(t *testing.T) {
 	var simpleResponse infoModel.SimpleResponse
 	err = json.Unmarshal(bodyBytes, &simpleResponse)
 	assert.NoError(t, err, "response was parsed")
-	assert.True(t, simpleResponse.Decision, "check decision is ture")
+	assert.True(t, simpleResponse.Decision, "check decision is true")
 
 	req.Header.Del("Authorization")
 	rr = httptest.NewRecorder()
@@ -246,4 +246,20 @@ func TestHandleSecurity(t *testing.T) {
 	rr = httptest.NewRecorder()
 	az.BundleDownload(rr, req)
 	assert.Equal(t, http.StatusForbidden, rr.Code, "Check request is forbidden")
+
+	inputStr :=
+		"{\"subject\":{\"identity\":\"CiRmZDE2MTRkMy1jMzlhLTQ3ODEtYjdiZC04Yjk2ZjVhNTEwMGQSBWxvY2Fs\"},\"action\":{\"name\":\"can_update_todo\"},\"resource\":{\"type\":\"todo\",\"ownerID\":\"morty@the-citadel.com\"}}"
+	req, err = http.NewRequest("POST", config.EndpointAuthzenSingleDecision, bytes.NewBufferString(inputStr))
+	req.Header.Set(config.HeaderRequestId, "1234")
+	req.Header.Set("Authorization", "Bearer "+authToken)
+	rr = httptest.NewRecorder()
+	az.HandleEvaluation(rr, req)
+
+	assert.Equal(t, "1234", rr.Header().Get(config.HeaderRequestId), "Check request id is returned")
+	assert.Equal(t, http.StatusOK, rr.Code, "Request processed ok")
+	bodyBytes = rr.Body.Bytes()
+
+	err = json.Unmarshal(bodyBytes, &simpleResponse)
+	assert.NoError(t, err, "response was parsed")
+	assert.True(t, simpleResponse.Decision, "check decision is true")
 }
