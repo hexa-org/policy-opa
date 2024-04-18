@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/hexa-org/policy-opa/api/infoModel"
@@ -18,7 +19,7 @@ import (
 
 func (az *AuthZenApp) Index(w http.ResponseWriter, r *http.Request) {
 	test := r.UserAgent()
-	_, _ = fmt.Fprintf(w, "Hello %s", test)
+	_, _ = fmt.Fprintf(w, "Hexa Authzen Test Server\n\nHello %s", test)
 }
 
 func (az *AuthZenApp) checkAuthorization(scopes []string, r *http.Request) int {
@@ -126,7 +127,7 @@ func (az *AuthZenApp) saveExistingBundle() (string, error) {
 	}
 	for _, entry := range dirEntry {
 		name := entry.Name()
-		if name == saveDir {
+		if name == saveDir || strings.HasPrefix(name, ".bundle") {
 			continue
 		}
 		config.ServerLog.Println("saving: " + name)
@@ -162,7 +163,7 @@ func (az *AuthZenApp) BundleUpload(writer http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	_ = compressionsupport.UnTarToPath(bytes.NewReader(gzip), filepath.Join(az.bundleDir, "bundle"))
+	_ = compressionsupport.UnTarToPath(bytes.NewReader(gzip), az.bundleDir)
 
 	// TODO: Should do some work to validate the bundle.
 	err = az.Decision.ProcessUploadOpa()
@@ -178,7 +179,7 @@ func (az *AuthZenApp) BundleUpload(writer http.ResponseWriter, r *http.Request) 
 }
 
 func (az *AuthZenApp) getTarBundle() ([]byte, error) {
-	return compressionsupport.TarFromPath(fmt.Sprintf("%s/%s", az.bundleDir, "bundle"))
+	return compressionsupport.TarFromPath(az.bundleDir)
 }
 
 func (az *AuthZenApp) BundleDownload(writer http.ResponseWriter, r *http.Request) {

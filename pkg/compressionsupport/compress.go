@@ -19,6 +19,9 @@ func TarFromPath(path string) ([]byte, error) {
 	}(tw)
 
 	err := filepath.Walk(path, func(file string, fi os.FileInfo, err error) error {
+		if fi.IsDir() && strings.Index(fi.Name(), ".bundle") == 0 {
+			return filepath.SkipDir
+		}
 		header, headerErr := tar.FileInfoHeader(fi, file)
 		if headerErr != nil {
 			return headerErr
