@@ -19,6 +19,10 @@ func TarFromPath(path string) ([]byte, error) {
 	}(tw)
 
 	err := filepath.Walk(path, func(file string, fi os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+
 		if fi.IsDir() && strings.Index(fi.Name(), ".bundle") == 0 {
 			return filepath.SkipDir
 		}

@@ -45,6 +45,7 @@ services:
       AUTHZEN_BUNDLE_DIR: "/home/authZen/bundles"
       AUTHZEN_USERPIP_FILE: "/home/authZen/users.json"
       AUTHZEN_TOKEN_DIRECTORY: "/home/certs"
+      AUTHZEN_TKN_MODE: "BUNDLE"
     volumes:
       - "./deployments/authZen:/home/authZen"
       - "./.certs:/home/certs:ro"

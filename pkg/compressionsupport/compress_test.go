@@ -37,7 +37,7 @@ func TestTar(t *testing.T) {
 
 func TestTar_withErr(t *testing.T) {
 	_, file, _, _ := runtime.Caller(0)
-	join := filepath.Join(file, "../resourcez")
+	join := filepath.Join(file, "../badpath")
 	_, err := compressionsupport.TarFromPath(join)
 	assert.Error(t, err)
 }

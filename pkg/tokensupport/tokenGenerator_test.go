@@ -13,9 +13,11 @@ import (
 
 type testSuite struct {
 	suite.Suite
-	keyDir  string
-	keyfile string
-	Handler *TokenHandler
+	keyDir      string
+	keyfile     string
+	Handler     *TokenHandler
+	bundleToken string
+	azToken     string
 }
 
 func TestTokenGenerator(t *testing.T) {
@@ -25,7 +27,7 @@ func TestTokenGenerator(t *testing.T) {
 	_ = os.Unsetenv(EnvTknPubKeyFile)
 	_ = os.Unsetenv(EnvTknPrivateKeyFile)
 
-	handler, err := GenerateIssuerKeys("authzen")
+	handler, err := GenerateIssuerKeys("authzen", false)
 	assert.NoError(t, err, "Check no error generating issuer")
 	assert.Equal(t, "authzen", handler.TokenIssuer, "Check issuer set")
 	s := testSuite{
@@ -68,12 +70,20 @@ func (s *testSuite) TestIssueAndValidateToken() {
 	validator, err := TokenValidator("authzen")
 	assert.NoError(s.T(), err, "No error on load")
 	assert.NotNil(s.T(), validator, "Check validator not null")
+	assert.Equal(s.T(), ModeEnforceAll, validator.Mode, "Check mode is enforce ALL by default")
 
 	fmt.Println("Issuing token...")
-	tokenString, err := s.Handler.IssueToken([]string{ScopeDecision}, "test@example.com")
+
+	tokenString, err := s.Handler.IssueToken([]string{ScopeBundle}, "test@example.com")
+	assert.NoError(s.T(), err, "No error issuing token")
+	assert.NotEmpty(s.T(), tokenString, "Token has a value")
+	s.bundleToken = tokenString
+
+	tokenString, err = s.Handler.IssueToken([]string{ScopeDecision}, "test@example.com")
 	assert.NoError(s.T(), err, "No error issuing token")
 	assert.NotEmpty(s.T(), tokenString, "Token has a value")
 	fmt.Println("Token issued:\n" + tokenString)
+	s.azToken = tokenString // save for the next test
 
 	req, _ := http.NewRequest("GET", "example.com", nil)
 	req.Header.Set("Authorization", "Bearer "+tokenString)
@@ -110,4 +120,49 @@ func (s *testSuite) TestIssueAndValidateToken() {
 	jwt, status = validator.ValidateAuthorization(req, []string{ScopeDecision})
 	assert.Equal(s.T(), http.StatusUnauthorized, status, "Check unauthorized")
 	assert.Nil(s.T(), jwt, "JWT should be nil")
+}
+
+func (s *testSuite) TestValidateMode() {
+	fmt.Println("Loading validator...")
+	_ = os.Unsetenv(EnvTknKeyDirectory)
+	_ = os.Unsetenv(EnvTknPrivateKeyFile)
+	_ = os.Setenv(EnvTknPubKeyFile, filepath.Join(s.keyDir, DefTknPublicKeyFile))
+	_ = os.Setenv(EnvTknEnforceMode, ModeEnforceBundle)
+
+	validator, err := TokenValidator("authzen")
+	assert.NoError(s.T(), err, "No error on load")
+	assert.NotNil(s.T(), validator, "Check validator not null")
+	assert.Equal(s.T(), ModeEnforceBundle, validator.Mode, "Check mode is enforce BUNDLE")
+
+	fmt.Println("Validate token...")
+
+	fmt.Println("  Positive check")
+
+	fmt.Println("    Anonymous")
+	req, _ := http.NewRequest("GET", "example.com", nil)
+	jwt, status := validator.ValidateAuthorization(req, []string{ScopeDecision})
+	assert.Equal(s.T(), http.StatusOK, status, "Check status ok")
+	assert.Nil(s.T(), jwt, "JWT should be nil")
+
+	fmt.Println("    Az scope token")
+	req.Header.Set("Authorization", "Bearer "+s.azToken)
+	jwt, status = validator.ValidateAuthorization(req, []string{ScopeDecision})
+	assert.Equal(s.T(), http.StatusOK, status, "Check status ok")
+	assert.Equal(s.T(), http.StatusOK, status, "Check status ok")
+	assert.Nil(s.T(), jwt, "JWT should be nil")
+
+	fmt.Println("    Bundle token")
+	req.Header.Set("Authorization", "Bearer "+s.bundleToken)
+	jwt, status = validator.ValidateAuthorization(req, []string{ScopeBundle})
+	assert.Equal(s.T(), http.StatusOK, status, "Check status ok")
+	email := jwt.Email
+	assert.Equal(s.T(), "test@example.com", email, "Check email parsed")
+
+	fmt.Println("  Negative checks")
+
+	// Token should be valid but wrong scope
+	req.Header.Set("Authorization", "Bearer "+s.azToken)
+	jwt, status = validator.ValidateAuthorization(req, []string{ScopeBundle})
+	assert.Equal(s.T(), http.StatusForbidden, status, "Check forbidden")
+
 }

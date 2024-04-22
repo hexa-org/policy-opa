@@ -114,7 +114,7 @@ func TestJwtAuth(t *testing.T) {
 	assert.True(t, reqTime.Before(time.Now()))
 	assert.Equal(t, 3, len(reqInfo.Header))
 
-	assert.Equal(t, "Bearer+JWT", subInfo.Type)
+	assert.Equal(t, "jwt", subInfo.Type)
 	assert.Equal(t, "TestUser", subInfo.Sub)
 
 	utils.StopServer(server)

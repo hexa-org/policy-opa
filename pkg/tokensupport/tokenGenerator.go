@@ -27,9 +27,14 @@ const (
 	EnvTknKeyDirectory   string = "AUTHZEN_TKN_DIRECTORY"
 	EnvTknPrivateKeyFile string = "AUTHZEN_TKN_PRIVKEYFILE"
 	EnvTknPubKeyFile     string = "AUTHZEN_TKN_PUBKEYFILE"
-	EnvAllowAnon         string = "AUTHZEN_TKN_DISABLE"
+	// EnvAllowAnon         string = "AUTHZEN_TKN_DISABLE"
 	DefTknPrivateKeyFile string = "issuer-priv.pem"
 	DefTknPublicKeyFile  string = "issuer-cert.pem"
+	EnvTknEnforceMode    string = "AUTHZEN_TKN_MODE"
+
+	ModeEnforceAnonymous = "ANON"
+	ModeEnforceBundle    = "BUNDLE"
+	ModeEnforceAll       = "ALL"
 )
 
 type JwtAuthToken struct {
@@ -39,13 +44,13 @@ type JwtAuthToken struct {
 }
 
 type TokenHandler struct {
-	TokenIssuer       string
-	PrivateKey        *rsa.PrivateKey
-	PublicKey         *keyfunc.JWKS
-	KeyDir            string
-	PrivateKeyPath    string
-	PublicKeyPath     string
-	DisableValidation bool
+	TokenIssuer    string
+	PrivateKey     *rsa.PrivateKey
+	PublicKey      *keyfunc.JWKS
+	KeyDir         string
+	PrivateKeyPath string
+	PublicKeyPath  string
+	Mode           string
 }
 
 func (a *TokenHandler) PrivateKeyExists() bool {
@@ -54,11 +59,20 @@ func (a *TokenHandler) PrivateKeyExists() bool {
 }
 
 func getConfig() *TokenHandler {
-	disableValidationString := os.Getenv(EnvAllowAnon)
-	disableValidation := false
-	if disableValidationString != "" && strings.EqualFold(disableValidationString, "true") {
-		disableValidation = true
+	validationString := os.Getenv(EnvTknEnforceMode)
+	var validationMode string
+
+	switch strings.ToUpper(validationString) {
+	case ModeEnforceAll:
+		validationMode = ModeEnforceAll
+	case ModeEnforceBundle:
+		validationMode = ModeEnforceBundle
+	case ModeEnforceAnonymous:
+		validationMode = ModeEnforceAnonymous
+	default:
+		validationMode = ModeEnforceAll
 	}
+
 	privateKeyPath := os.Getenv(EnvTknPrivateKeyFile)
 	publicKeyPath := os.Getenv(EnvTknPubKeyFile)
 	keyDir := os.Getenv(EnvTknKeyDirectory)
@@ -94,10 +108,10 @@ func getConfig() *TokenHandler {
 		publicKeyPath = filepath.Join(keyDir, DefTknPublicKeyFile)
 	}
 	return &TokenHandler{
-		KeyDir:            keyDir,
-		PublicKeyPath:     publicKeyPath,
-		PrivateKeyPath:    privateKeyPath,
-		DisableValidation: disableValidation,
+		KeyDir:         keyDir,
+		PublicKeyPath:  publicKeyPath,
+		PrivateKeyPath: privateKeyPath,
+		Mode:           validationMode,
 	}
 
 }
@@ -117,11 +131,9 @@ func TokenValidator(name string) (*TokenHandler, error) {
 	}
 
 	pubKey := convertJWKS(name, publicKey)
-	return &TokenHandler{
-		TokenIssuer: name,
-		PublicKey:   pubKey,
-	}, nil
-
+	valConfig.TokenIssuer = name
+	valConfig.PublicKey = pubKey
+	return valConfig, nil
 }
 
 func convertJWKS(name string, pubKey *rsa.PublicKey) *keyfunc.JWKS {
@@ -229,14 +241,23 @@ func (a *TokenHandler) IssueToken(scopes []string, email string) (string, error)
 // ValidateAuthorization evaluates the authorization header and checks to see if the correct scope is asserted.
 // 200 OK means authorized. Forbidden returned if wrong scope, otherwise unauthorized
 func (a *TokenHandler) ValidateAuthorization(r *http.Request, scopes []string) (*JwtAuthToken, int) {
-	if a.DisableValidation {
+	switch a.Mode {
+	case ModeEnforceAnonymous:
 		return nil, http.StatusOK // Anonymous mode should only be used for testing!
+	case ModeEnforceBundle:
+		// If the request is for a decision and we are enforcing bundle only, return success
+		if scopeMatch(scopes, []string{ScopeDecision}) {
+			return nil, http.StatusOK // Decisions can proceed without authorization
+		}
+	default:
+		// continue enforcement.
 	}
-	authorization := r.Header.Get("Authorization")
 
+	authorization := r.Header.Get("Authorization")
 	if authorization == "" {
 		return nil, http.StatusUnauthorized
 	}
+
 	parts := strings.Split(authorization, " ")
 	if len(parts) < 2 {
 		return nil, http.StatusUnauthorized
@@ -286,10 +307,9 @@ func (a *TokenHandler) ParseAuthToken(tokenString string) (*JwtAuthToken, error)
 	return nil, err
 }
 
-func (t *JwtAuthToken) IsScopeMatch(scopesAccepted []string) bool {
-
+func scopeMatch(scopesAccepted []string, scopesHave []string) bool {
 	for _, acceptedScope := range scopesAccepted {
-		for _, scope := range t.Scopes {
+		for _, scope := range scopesHave {
 			if strings.EqualFold(scope, ScopeAdmin) {
 				return true
 			}
@@ -300,4 +320,8 @@ func (t *JwtAuthToken) IsScopeMatch(scopesAccepted []string) bool {
 		}
 	}
 	return false
+}
+
+func (t *JwtAuthToken) IsScopeMatch(scopesAccepted []string) bool {
+	return scopeMatch(scopesAccepted, t.Scopes)
 }
