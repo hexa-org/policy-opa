@@ -45,7 +45,7 @@ func (az *AuthZenApp) HandleEvaluation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	resp, err, status := az.Decision.ProcessDecision(jsonRequest, r)
+	resp, err, status := az.Decision.ProcessDecision(jsonRequest)
 	if err != nil {
 		tid := requestId
 		if tid == "" {
@@ -142,6 +142,15 @@ func (az *AuthZenApp) saveExistingBundle() (string, error) {
 	return savePath, nil
 }
 
+/*
+BundleUpload accepts an OPA tar bundle and replaces the current bundle package at az.BundleDir. Note the the process
+followed is:
+
+1. Save the existing bundle directory to ".bundle-<number>"
+2. Unzip and untar bundle to az.bundleDir (this bundle should contain an bundle folder)
+3. Attempt to reload Rego.
+4. If rego fails, restore the old bundle and server
+*/
 func (az *AuthZenApp) BundleUpload(writer http.ResponseWriter, r *http.Request) {
 	authStatus := az.checkAuthorization([]string{tokensupport.ScopeBundle}, r)
 	if authStatus != http.StatusOK {

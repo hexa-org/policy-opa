@@ -26,7 +26,7 @@ func (d *DecisionHandler) ProcessUploadOpa() error {
 	return d.regoHandler.ReloadRego()
 }
 
-func (d *DecisionHandler) createInputObjectSimple(authRequest infoModel2.AuthRequest, _ *http.Request) infoModel2.AzInfo {
+func (d *DecisionHandler) createInputObjectSimple(authRequest infoModel2.AuthRequest) infoModel2.AzInfo {
 	user := d.pip.GetUser(authRequest.Subject.Identity)
 
 	claims := make(map[string]interface{})
@@ -63,9 +63,9 @@ func (d *DecisionHandler) HealthCheck() bool {
 ProcessDecision takes an AuthZen AuthRequest, generates a Hexa OPA input object that combines resource, subject, and
 request information and calls the HexaOPA decision engine and parses the results.
 */
-func (d *DecisionHandler) ProcessDecision(authRequest infoModel2.AuthRequest, r *http.Request) (*infoModel2.SimpleResponse, error, int) {
+func (d *DecisionHandler) ProcessDecision(authRequest infoModel2.AuthRequest) (*infoModel2.SimpleResponse, error, int) {
 
-	input := d.createInputObjectSimple(authRequest, r)
+	input := d.createInputObjectSimple(authRequest)
 
 	results, err := d.regoHandler.Evaluate(input)
 	if err != nil {

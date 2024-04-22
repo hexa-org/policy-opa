@@ -3,29 +3,25 @@ package authZenApp
 import (
 	"bytes"
 	"encoding/json"
-	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"strconv"
 	"testing"
 
 	"github.com/hexa-org/policy-opa/api/infoModel"
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/config"
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/decisionHandler"
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/userHandler"
+	"github.com/hexa-org/policy-opa/pkg/bundleTestSupport"
 	"github.com/hexa-org/policy-opa/pkg/compressionsupport"
 	"github.com/hexa-org/policy-opa/pkg/tokensupport"
 	"github.com/stretchr/testify/assert"
 )
 
-func cleanup(path string) {
-	_ = os.RemoveAll(path)
-}
-
 func TestGetBundle(t *testing.T) {
-	az := AuthZenApp{bundleDir: "./test/bundles"}
+	testBundle := bundleTestSupport.GetTestBundlePath("./test/bundles/bundle")
+	az := AuthZenApp{bundleDir: testBundle}
 
 	rr := httptest.NewRecorder()
 
@@ -39,7 +35,7 @@ func TestGetBundle(t *testing.T) {
 
 	tempDir, err := os.MkdirTemp("", "authzen-*")
 	assert.NoError(t, err, "No error creating tempdir")
-	defer cleanup(tempDir)
+	defer bundleTestSupport.Cleanup(tempDir)
 
 	err = compressionsupport.UnTarToPath(bytes.NewReader(gzip), tempDir)
 
@@ -50,40 +46,15 @@ func TestGetBundle(t *testing.T) {
 	assert.NoError(t, err, "Rego should be there")
 }
 
-func getTestBundle(path string) ([]byte, error) {
-	tar, _ := compressionsupport.TarFromPath(path)
-
-	var output []byte
-	writer := bytes.NewBuffer(output)
-	err := compressionsupport.Gzip(writer, tar)
-
-	return writer.Bytes(), err
-}
-
-func initTestBundlesDir(t *testing.T) string {
-	tempDir, err := os.MkdirTemp("", "authzen-*")
-	assert.NoError(t, err, "No error creating tempdir")
-
-	bundlePath := filepath.Join(tempDir, "bundle")
-	err = os.Mkdir(bundlePath, 0777)
-	assert.NoError(t, err, "No error creating bundle dir")
-
-	bundle, err := getTestBundle("./test/testBundle")
-	gzip, err := compressionsupport.UnGzip(bytes.NewReader(bundle))
-	err = compressionsupport.UnTarToPath(bytes.NewReader(gzip), bundlePath)
-
-	return tempDir
-}
-
 func TestUploadBundle(t *testing.T) {
-	bundleDir := initTestBundlesDir(t)
-	defer cleanup(bundleDir)
+	bundleDir := bundleTestSupport.InitTestBundlesDir(t)
+	defer bundleTestSupport.Cleanup(bundleDir)
 
 	_ = os.Setenv(config.EnvBundleDir, bundleDir)
 	az := AuthZenApp{bundleDir: bundleDir}
 	az.Decision = decisionHandler.NewDecisionHandler()
 
-	req, err := prepareRequest("./test/testBundle")
+	req, err := bundleTestSupport.PrepareBundleUploadRequest(bundleTestSupport.GetTestBundlePath("./test/testBundle"))
 	assert.NoError(t, err, "No error creating request")
 	rr := httptest.NewRecorder()
 
@@ -92,35 +63,15 @@ func TestUploadBundle(t *testing.T) {
 
 }
 
-func prepareRequest(path string) (*http.Request, error) {
-	testBundle, _ := getTestBundle(path)
-
-	buf := new(bytes.Buffer)
-	writer := multipart.NewWriter(buf)
-	formFile, _ := writer.CreateFormFile("bundle", "bundle.tar.gz")
-	_, _ = formFile.Write(testBundle)
-	_ = writer.Close()
-
-	req, err := http.NewRequest("POST", config.EndpointOpaBundles, buf)
-	if err != nil {
-		return nil, err
-	}
-	req.Header.Add("Content-Type", writer.FormDataContentType())
-	req.Header.Add("Content-Length", strconv.Itoa(buf.Len()))
-
-	return req, err
-
-}
-
 func TestUploadBadBundle(t *testing.T) {
-	bundleDir := initTestBundlesDir(t)
-	defer cleanup(bundleDir)
+	bundleDir := bundleTestSupport.InitTestBundlesDir(t)
+	defer bundleTestSupport.Cleanup(bundleDir)
 
 	_ = os.Setenv(config.EnvBundleDir, bundleDir)
 	az := AuthZenApp{bundleDir: bundleDir}
 	az.Decision = decisionHandler.NewDecisionHandler()
 
-	req, err := prepareRequest("./test/badRegoBundle")
+	req, err := bundleTestSupport.PrepareBundleUploadRequest(bundleTestSupport.GetTestBundlePath("./test/badRegoBundle"))
 	assert.NoError(t, err, "No error creating request")
 	rr := httptest.NewRecorder()
 
@@ -129,7 +80,7 @@ func TestUploadBadBundle(t *testing.T) {
 	body := rr.Body.String()
 	assert.Contains(t, body, "rego_parse_error", "Check error reported")
 
-	req, err = prepareRequest("./test/badDataBundle")
+	req, err = bundleTestSupport.PrepareBundleUploadRequest(bundleTestSupport.GetTestBundlePath("./test/badDataBundle"))
 	assert.NoError(t, err, "No error creating request")
 	rr = httptest.NewRecorder()
 
@@ -140,8 +91,8 @@ func TestUploadBadBundle(t *testing.T) {
 }
 
 func TestHandleEvaluation(t *testing.T) {
-	bundleDir := initTestBundlesDir(t)
-	defer cleanup(bundleDir)
+	bundleDir := bundleTestSupport.InitTestBundlesDir(t)
+	defer bundleTestSupport.Cleanup(bundleDir)
 
 	_ = os.Setenv(config.EnvBundleDir, bundleDir)
 	_ = os.Setenv(config.EnvAuthUserPipFile, userHandler.DefaultUserPipFile)
@@ -156,6 +107,7 @@ func TestHandleEvaluation(t *testing.T) {
 	bodyBytes, err := json.Marshal(&body)
 	assert.NoError(t, err, "Check no error serializing request")
 	req, err := http.NewRequest("POST", config.EndpointAuthzenSingleDecision, bytes.NewReader(bodyBytes))
+	assert.NotNil(t, req)
 	req.Header.Set(config.HeaderRequestId, "1234")
 	rr := httptest.NewRecorder()
 	az.HandleEvaluation(rr, req)
@@ -171,8 +123,8 @@ func TestHandleEvaluation(t *testing.T) {
 }
 
 func TestHandleQueryEvaluation(t *testing.T) {
-	bundleDir := initTestBundlesDir(t)
-	defer cleanup(bundleDir)
+	bundleDir := bundleTestSupport.InitTestBundlesDir(t)
+	defer bundleTestSupport.Cleanup(bundleDir)
 
 	_ = os.Setenv(config.EnvBundleDir, bundleDir)
 	_ = os.Setenv(config.EnvAuthUserPipFile, userHandler.DefaultUserPipFile)
@@ -199,13 +151,17 @@ func TestHandleQueryEvaluation(t *testing.T) {
 }
 
 func TestHandleSecurity(t *testing.T) {
-	bundleDir := initTestBundlesDir(t)
-	defer cleanup(bundleDir)
+	bundleDir := bundleTestSupport.InitTestBundlesDir(t)
+	defer bundleTestSupport.Cleanup(bundleDir)
 
-	os.Setenv(tokensupport.EnvTknPrivateKeyFile, filepath.Join(bundleDir, "certs", tokensupport.DefTknPrivateKeyFile))
+	_ = os.Setenv(tokensupport.EnvTknPrivateKeyFile, filepath.Join(bundleDir, "certs", tokensupport.DefTknPrivateKeyFile))
 	tokenHandler, err := tokensupport.GenerateIssuerKeys("authzen", false)
+	assert.NoError(t, err, "Check no errors generating keys")
+	assert.NotNil(t, tokenHandler, "Check token handler returned")
 
 	authToken, err := tokenHandler.IssueToken([]string{tokensupport.ScopeDecision}, "handlers@hexa.org")
+	assert.NotNil(t, authToken)
+
 	assert.NoError(t, err, "No error generating token")
 
 	_ = os.Setenv(config.EnvBundleDir, bundleDir)
