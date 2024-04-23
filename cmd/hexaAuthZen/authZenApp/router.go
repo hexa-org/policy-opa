@@ -41,20 +41,22 @@ func NewRouter(application *AuthZenApp) *HttpRouter {
 		var handler http.Handler
 		handler = route.HandlerFunc
 		handler = application.Logger(handler, route.Name)
-		if route.IsIdQuery {
-			httpRouter.router.
-				Methods(route.Method).
-				Path(route.Pattern).
-				Name(route.Name).
-				Handler(handler).
-				Queries("id", "{id:[a-fA-F0-9]+}")
-		} else {
-			httpRouter.router.
-				Methods(route.Method).
-				Path(route.Pattern).
-				Name(route.Name).
-				Handler(handler)
-		}
+		/*
+			if route.IsIdQuery {
+				httpRouter.router.
+					Methods(route.Method).
+					Path(route.Pattern).
+					Name(route.Name).
+					Handler(handler).
+					Queries("id", "{id:[a-fA-F0-9]+}")
+			}
+			else {
+		*/
+		httpRouter.router.
+			Methods(route.Method).
+			Path(route.Pattern).
+			Name(route.Name).
+			Handler(handler)
 
 	}
 

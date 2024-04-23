@@ -20,7 +20,7 @@ import (
 )
 
 func TestGetBundle(t *testing.T) {
-	testBundle := bundleTestSupport.GetTestBundlePath("./test/bundles/bundle")
+	testBundle := bundleTestSupport.GetTestBundlePath("./test/bundles")
 	az := AuthZenApp{bundleDir: testBundle}
 
 	rr := httptest.NewRecorder()
@@ -39,10 +39,10 @@ func TestGetBundle(t *testing.T) {
 
 	err = compressionsupport.UnTarToPath(bytes.NewReader(gzip), tempDir)
 
-	_, err = os.Stat(filepath.Join(tempDir, "hexaPolicyV2.rego"))
+	_, err = os.Stat(filepath.Join(tempDir, "bundle", "hexaPolicyV2.rego"))
 	assert.NoError(t, err, "Rego should be there")
 
-	_, err = os.Stat(filepath.Join(tempDir, "data.json"))
+	_, err = os.Stat(filepath.Join(tempDir, "bundle", "data.json"))
 	assert.NoError(t, err, "Rego should be there")
 }
 

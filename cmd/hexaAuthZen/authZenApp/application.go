@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/config"
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/decisionHandler"
@@ -35,6 +36,16 @@ func (az *AuthZenApp) HealthCheck() bool {
 func StartServer(addr string, baseUrlString string) *AuthZenApp {
 
 	az := AuthZenApp{}
+
+	authMode := os.Getenv(tokensupport.EnvTknEnforceMode)
+	if !strings.EqualFold(tokensupport.ModeEnforceAnonymous, authMode) {
+		var err error
+		az.TokenValidator, err = tokensupport.TokenValidator("authzen")
+		if err != nil {
+			config.ServerLog.Println(fmt.Sprintf("FATAL Loading Token Validator: %s", err.Error()))
+			panic(err)
+		}
+	}
 
 	az.bundleDir = os.Getenv(config.EnvBundleDir)
 	if az.bundleDir == "" {

@@ -32,6 +32,9 @@ func (az *AuthZenApp) checkAuthorization(scopes []string, r *http.Request) int {
 
 func (az *AuthZenApp) HandleEvaluation(w http.ResponseWriter, r *http.Request) {
 	requestId := r.Header.Get(config.HeaderRequestId)
+	if requestId != "" {
+		w.Header().Set(config.HeaderRequestId, requestId)
+	}
 	authStatus := az.checkAuthorization([]string{tokensupport.ScopeDecision}, r)
 	if authStatus != http.StatusOK {
 		w.WriteHeader(authStatus)
@@ -54,10 +57,6 @@ func (az *AuthZenApp) HandleEvaluation(w http.ResponseWriter, r *http.Request) {
 		config.ServerLog.Println(fmt.Sprintf("Unexpected decision error (id: %s): %s", tid, err.Error()))
 		http.Error(w, fmt.Sprintf("Unexpected internal decision error (id: %s", tid), status)
 		return
-	}
-
-	if requestId != "" {
-		w.Header().Set(config.HeaderRequestId, requestId)
 	}
 
 	w.WriteHeader(status)
