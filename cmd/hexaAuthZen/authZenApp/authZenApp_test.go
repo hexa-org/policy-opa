@@ -270,3 +270,31 @@ func (s *testSuite) TestIndex() {
 	fmt.Println("Response:")
 	fmt.Println(string(status))
 }
+
+func (s *testSuite) TestLogger() {
+	var buf bytes.Buffer
+	origLog := httpLog
+
+	httpLog = log.New(&buf, "HTTP: ", log.Ldate|log.Ltime)
+
+	// Do a request to log
+	reqUrl := url.URL{
+		Scheme: "http",
+		Host:   s.addr,
+		Path:   config.EndpointGetOpaBundles,
+	}
+
+	req, err := http.NewRequest(http.MethodGet, reqUrl.String(), nil)
+	req.Header.Set("Authorization", "Bearer "+s.bundleAuth)
+	assert.NoError(s.T(), err, "No error creating request")
+
+	client := http.Client{}
+	defer client.CloseIdleConnections()
+	_, err = client.Do(req)
+	assert.NoError(s.T(), err, "No error on logger bundle request")
+
+	httpLog = origLog
+
+	result := buf.String()
+	assert.Contains(s.T(), result, "(Get Bundle) bundle@hexa.org")
+}

@@ -23,11 +23,14 @@ func (az *AuthZenApp) Logger(inner http.Handler, name string) http.Handler {
 
 		inner.ServeHTTP(w, r)
 
+		email := r.Header.Get(Header_Email)
+
 		httpLog.Printf(
-			"[%s] %s %s %s",
+			"[%s] %s (%s) %s %s",
 			r.Method,
 			r.RequestURI,
 			name,
+			email,
 			time.Since(start),
 		)
 	})

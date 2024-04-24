@@ -1,11 +1,12 @@
 package metricssupport
 
+// TODO: this code came from policy-orchestrator... does not seem complete
+
 import (
 	"net/http"
 	"strings"
 
 	"github.com/gorilla/mux"
-	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/config"
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promauto"
 )
@@ -42,6 +43,7 @@ func PrometheusHttpMiddleware(next http.Handler) http.Handler {
 }
 
 func MetricsMiddleware(next http.Handler) http.Handler {
+
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		for _, s := range []string{"/styles", "/images"} {
 			if strings.HasPrefix(r.URL.Path, s) {
@@ -49,9 +51,9 @@ func MetricsMiddleware(next http.Handler) http.Handler {
 				return
 			}
 		}
-		route := mux.CurrentRoute(r)
-		path, _ := route.GetPathTemplate()
-		config.ServerLog.Printf("Returning metrics: %v\n", path)
+		// route := mux.CurrentRoute(r)
+		// path, _ := route.GetPathTemplate()
+		// config.ServerLog.Printf("Returning metrics: %v\n", path)
 		next.ServeHTTP(w, r)
 	})
 }

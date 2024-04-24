@@ -17,6 +17,8 @@ import (
 	"github.com/hexa-org/policy-opa/pkg/tokensupport"
 )
 
+const Header_Email string = "X-JWT-EMAIL"
+
 func (az *AuthZenApp) Index(w http.ResponseWriter, r *http.Request) {
 	test := r.UserAgent()
 	_, _ = fmt.Fprintf(w, "Hexa Authzen Test Server\n\nHello %s", test)
@@ -24,7 +26,10 @@ func (az *AuthZenApp) Index(w http.ResponseWriter, r *http.Request) {
 
 func (az *AuthZenApp) checkAuthorization(scopes []string, r *http.Request) int {
 	if az.TokenValidator != nil {
-		_, stat := az.TokenValidator.ValidateAuthorization(r, scopes)
+		token, stat := az.TokenValidator.ValidateAuthorization(r, scopes)
+		if token != nil {
+			r.Header.Set(Header_Email, token.Email)
+		}
 		return stat
 	}
 	return http.StatusOK // For tests, just return ok when token validator not initialized
