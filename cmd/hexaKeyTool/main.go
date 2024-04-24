@@ -1,6 +1,6 @@
 /*
 hexaKeyTool is a command line tool that can be used to generate a set of self-signed keys for use by
-the testBundleServer, hexaOpa server, and the Hexa AuthZen server.
+the hexaBundleServer, hexaOpa server, and the Hexa AuthZen server.
 
 USAGE:
 

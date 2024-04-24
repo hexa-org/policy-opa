@@ -5,7 +5,7 @@
 This project provides support for running Hexa IDQL Policy on Open Policy Agent (OPA) servers. 
 This integration includes:
 
-* [Hexa rego policy](deployments/testBundleServer/resources/bundles/bundle/hexaPolicy.rego) to evaluate IDQL policy statements in an OPA Policy Agent.
+* [Hexa rego policy](deployments/hexaBundleServer/resources/bundles/bundle/hexaPolicy.rego) to evaluate IDQL policy statements in an OPA Policy Agent.
 * An OPA `hexaFilter` plugin enabling dynamic evaluation of IDQL Conditions.
 * An extended OPA server `hexaOpa` which runs as a normal OPA server but with the `hexaFilter` extension.
 * A client `opaTools` package which enables web applications to call OPA using a normalized query providing request and subject information for processing

@@ -6,7 +6,7 @@ services:
     container_name: hexa-bundle-server
     ports:
       - "8889:8889"
-    command: /app/testBundleServer
+    command: /app/hexaBundleServer
     environment:
       PORT: 8889
       HEXA_CERT_DIRECTORY: "/home/certs"
@@ -14,7 +14,7 @@ services:
       SERVER_KEY: "/home/certs/server-key.pem"
       BUNDLE_DIR: "/home/resources/bundles"
     volumes:
-      - "./deployments/testBundleServer/resources:/home/resources"
+      - "./deployments/hexaBundleServer/resources:/home/resources"
       - "./.certs:/home/certs:ro"
 
   hexa-opa-agent:

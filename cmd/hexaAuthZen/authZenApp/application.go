@@ -39,12 +39,17 @@ func StartServer(addr string, baseUrlString string) *AuthZenApp {
 
 	authMode := os.Getenv(tokensupport.EnvTknEnforceMode)
 	if !strings.EqualFold(tokensupport.ModeEnforceAnonymous, authMode) {
+		issuerName := os.Getenv(tokensupport.EnvTknIssuer)
+		if issuerName == "" {
+			issuerName = "authzen"
+		}
 		var err error
-		az.TokenValidator, err = tokensupport.TokenValidator("authzen")
+		az.TokenValidator, err = tokensupport.TokenValidator(issuerName)
 		if err != nil {
 			config.ServerLog.Println(fmt.Sprintf("FATAL Loading Token Validator: %s", err.Error()))
 			panic(err)
 		}
+
 	}
 
 	az.bundleDir = os.Getenv(config.EnvBundleDir)

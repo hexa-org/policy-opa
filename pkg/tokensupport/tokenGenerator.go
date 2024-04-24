@@ -31,6 +31,7 @@ const (
 	DefTknPrivateKeyFile string = "issuer-priv.pem"
 	DefTknPublicKeyFile  string = "issuer-cert.pem"
 	EnvTknEnforceMode    string = "AUTHZEN_TKN_MODE"
+	EnvTknIssuer         string = "TKN_ISSUER"
 
 	ModeEnforceAnonymous = "ANON"
 	ModeEnforceBundle    = "BUNDLE"

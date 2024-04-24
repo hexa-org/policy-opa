@@ -18,29 +18,62 @@ import (
 	"time"
 
 	"github.com/gorilla/mux"
+	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/config"
 	"github.com/hexa-org/policy-opa/pkg/compressionsupport"
 	"github.com/hexa-org/policy-opa/pkg/keysupport"
+	"github.com/hexa-org/policy-opa/pkg/tokensupport"
 	"github.com/hexa-org/policy-opa/pkg/websupport"
 )
 
 const DEF_TEST_BUNDLE_PATH string = "../resources/bundles"
+const Header_Email string = "X-JWT-EMAIL"
 
 func App(addr string, bundleDir string) *http.Server {
-	basic := NewBasicApp(bundleDir)
+	basic := NewBundleApp(bundleDir)
 	return websupport.Create(addr, basic.loadHandlers(), websupport.Options{})
 }
 
-type BasicApp struct {
-	bundleDir string
+type BundleApp struct {
+	bundleDir      string
+	TokenValidator *tokensupport.TokenHandler
 }
 
-func NewBasicApp(bundleDir string) BasicApp {
-	return BasicApp{bundleDir: bundleDir}
+func NewBundleApp(bundleDir string) BundleApp {
+	app := BundleApp{bundleDir: bundleDir}
+	authMode := os.Getenv(tokensupport.EnvTknEnforceMode)
+	if !strings.EqualFold(tokensupport.ModeEnforceAnonymous, authMode) {
+		issuerName := os.Getenv(tokensupport.EnvTknIssuer)
+		if issuerName == "" {
+			issuerName = "authzen"
+		}
+		var err error
+		app.TokenValidator, err = tokensupport.TokenValidator(issuerName)
+		if err != nil {
+			config.ServerLog.Println(fmt.Sprintf("FATAL Loading Token Validator: %s", err.Error()))
+			panic(err)
+		}
+	}
+
+	return app
 }
 
-// todo - ignoring errors in the demo app for the moment
+func (a *BundleApp) checkAuthorization(scopes []string, r *http.Request) int {
+	if a.TokenValidator != nil {
+		token, stat := a.TokenValidator.ValidateAuthorization(r, scopes)
+		if token != nil {
+			r.Header.Set(Header_Email, token.Email)
+		}
+		return stat
+	}
+	return http.StatusOK // For tests, just return ok when token validator not initialized
+}
 
-func (a *BasicApp) download(writer http.ResponseWriter, _ *http.Request) {
+func (a *BundleApp) download(writer http.ResponseWriter, r *http.Request) {
+	authStatus := a.checkAuthorization([]string{tokensupport.ScopeBundle}, r)
+	if authStatus != http.StatusOK {
+		writer.WriteHeader(authStatus)
+		return
+	}
 
 	tar, _ := compressionsupport.TarFromPath(fmt.Sprintf("%s/%s", a.bundleDir, a.latest(a.bundleDir)))
 	writer.Header().Set("Content-Type", "application/gzip")
@@ -48,7 +81,7 @@ func (a *BasicApp) download(writer http.ResponseWriter, _ *http.Request) {
 	writer.Header()
 }
 
-func (a *BasicApp) latest(dir string) string {
+func (a *BundleApp) latest(dir string) string {
 	available := a.available(dir)
 	if len(available) == 0 {
 		return ""
@@ -56,7 +89,7 @@ func (a *BasicApp) latest(dir string) string {
 	return available[0].Name()
 }
 
-func (a *BasicApp) available(dir string) []fs.FileInfo {
+func (a *BundleApp) available(dir string) []fs.FileInfo {
 	available := make([]fs.FileInfo, 0)
 	dirInfo, err := os.Stat(dir)
 	if os.IsExist(err) && dirInfo.IsDir() {
@@ -78,7 +111,12 @@ func (a *BasicApp) available(dir string) []fs.FileInfo {
 	return available
 }
 
-func (a *BasicApp) upload(writer http.ResponseWriter, r *http.Request) {
+func (a *BundleApp) upload(writer http.ResponseWriter, r *http.Request) {
+	authStatus := a.checkAuthorization([]string{tokensupport.ScopeBundle}, r)
+	if authStatus != http.StatusOK {
+		writer.WriteHeader(authStatus)
+		return
+	}
 	_ = r.ParseMultipartForm(32 << 20)
 	bundleFile, _, _ := r.FormFile("bundle")
 	gzip, _ := compressionsupport.UnGzip(bundleFile)
@@ -89,8 +127,12 @@ func (a *BasicApp) upload(writer http.ResponseWriter, r *http.Request) {
 	writer.WriteHeader(http.StatusCreated)
 }
 
-func (a *BasicApp) reset(writer http.ResponseWriter, _ *http.Request) {
-
+func (a *BundleApp) reset(writer http.ResponseWriter, r *http.Request) {
+	authStatus := a.checkAuthorization([]string{tokensupport.ScopeAdmin}, r)
+	if authStatus != http.StatusOK {
+		writer.WriteHeader(authStatus)
+		return
+	}
 	for _, available := range a.available(a.bundleDir) {
 		if strings.Index(available.Name(), ".bundle") == 0 {
 			path := filepath.Join(a.bundleDir, available.Name())
@@ -104,7 +146,7 @@ func (a *BasicApp) reset(writer http.ResponseWriter, _ *http.Request) {
 	}
 }
 
-func (a *BasicApp) loadHandlers() func(router *mux.Router) {
+func (a *BundleApp) loadHandlers() func(router *mux.Router) {
 	return func(router *mux.Router) {
 		router.HandleFunc("/bundles/bundle.tar.gz", a.download).Methods("GET")
 		router.HandleFunc("/bundles", a.upload).Methods("POST")
@@ -113,7 +155,6 @@ func (a *BasicApp) loadHandlers() func(router *mux.Router) {
 }
 
 func newApp(addr string, bundlePath string) (*http.Server, net.Listener) {
-
 	if found := os.Getenv("PORT"); found != "" {
 		host, _, _ := net.SplitHostPort(addr)
 		addr = fmt.Sprintf("%v:%v", host, found)

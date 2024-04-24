@@ -18,6 +18,7 @@ import (
 	"github.com/hexa-org/policy-opa/pkg/compressionsupport"
 	"github.com/hexa-org/policy-opa/pkg/healthsupport"
 	"github.com/hexa-org/policy-opa/pkg/keysupport"
+	"github.com/hexa-org/policy-opa/pkg/tokensupport"
 	"github.com/hexa-org/policy-opa/pkg/websupport"
 	"github.com/stretchr/testify/assert"
 )
@@ -31,10 +32,16 @@ func TestNewApp(t *testing.T) {
 	newApp("localhost:0", DEF_TEST_BUNDLE_PATH)
 }
 
-func setup() *http.Server {
+func setup(jwtMode bool) *http.Server {
 	listener, _ := net.Listen("tcp", "localhost:0")
 	_, file, _, _ := runtime.Caller(0)
 	bundleDir := filepath.Join(file, DEF_TEST_BUNDLE_PATH)
+	if jwtMode {
+		_ = os.Setenv(tokensupport.EnvTknEnforceMode, tokensupport.ModeEnforceAll)
+
+	} else {
+		_ = os.Setenv(tokensupport.EnvTknEnforceMode, tokensupport.ModeEnforceAnonymous)
+	}
 	app := App(listener.Addr().String(), bundleDir)
 	go func() {
 		websupport.Start(app, listener)
@@ -44,21 +51,48 @@ func setup() *http.Server {
 }
 
 func TestApp(t *testing.T) {
-	app := setup()
+	app := setup(false)
 	response, _ := http.Get(fmt.Sprintf("http://%s/health", app.Addr))
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 	websupport.Stop(app)
 }
 
 func TestDownload(t *testing.T) {
-	app := setup()
+	app := setup(false)
 	response, _ := http.Get(fmt.Sprintf("http://%s/bundles/bundle.tar.gz", app.Addr))
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 	websupport.Stop(app)
 }
 
+func TestDownloadAuth(t *testing.T) {
+	app := setup(true)
+
+	// Unauthorized request
+	reqUrl := fmt.Sprintf("http://%s/bundles/bundle.tar.gz", app.Addr)
+	response, _ := http.Get(reqUrl)
+	assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
+
+	req, _ := http.NewRequest(http.MethodGet, reqUrl, nil)
+	req.Header.Set("Authorization", "Bearer "+bundleToken)
+	client := http.Client{}
+	defer client.CloseIdleConnections()
+
+	resp, err := client.Do(req)
+	assert.NoError(t, err, "Request completed with no error")
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	// Wrong scope
+	req.Header.Set("Authorization", "Bearer "+badToken)
+
+	resp, err = client.Do(req)
+	assert.NoError(t, err, "Request completed with no error")
+	assert.Equal(t, http.StatusForbidden, resp.StatusCode)
+
+	websupport.Stop(app)
+}
+
 func TestUpload(t *testing.T) {
-	app := setup()
+	app := setup(false)
 
 	_, file, _, _ := runtime.Caller(0)
 	bundleDir := filepath.Join(file, "../resources/bundles")
@@ -81,9 +115,29 @@ func TestUpload(t *testing.T) {
 }
 
 func TestReset(t *testing.T) {
-	app := setup()
+	app := setup(false)
 	response, _ := http.Get(fmt.Sprintf("http://%s/reset", app.Addr))
 	assert.Equal(t, http.StatusOK, response.StatusCode)
+	websupport.Stop(app)
+}
+
+func TestResetAuth(t *testing.T) {
+	app := setup(true)
+
+	reqUrl := fmt.Sprintf("http://%s/reset", app.Addr)
+	response, _ := http.Get(reqUrl)
+
+	assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
+
+	req, _ := http.NewRequest(http.MethodGet, reqUrl, nil)
+	req.Header.Set("Authorization", "Bearer "+adminToken)
+	client := http.Client{}
+	defer client.CloseIdleConnections()
+
+	resp, err := client.Do(req)
+	assert.NoError(t, err, "Request completed with no error")
+	assert.Equal(t, http.StatusOK, resp.StatusCode)
+
 	websupport.Stop(app)
 }
 

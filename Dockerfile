@@ -17,7 +17,7 @@ USER ${USER}
 # ADD docker/config/config.yaml ./config.yaml
 
 ADD --chmod=ug+x ./hexaOpa ./hexaOpa
-ADD --chmod=ug+x ./testBundleServer ./testBundleServer
+ADD --chmod=ug+x ./hexaBundleServer ./hexaBundleServer
 ADD --chmod=ug+x ./hexaAuthZen ./hexaAuthZen
 
 # Optional:
