@@ -25,6 +25,7 @@ import (
 	"github.com/hexa-org/policy-opa/pkg/websupport"
 )
 
+const EnvBundleDir = "BUNDLE_DIR"
 const DEF_TEST_BUNDLE_PATH string = "../resources/bundles"
 const Header_Email string = "X-JWT-EMAIL"
 
@@ -169,7 +170,7 @@ func newApp(addr string, bundlePath string) (*http.Server, net.Listener) {
 
 	listener, _ := net.Listen("tcp", addr)
 
-	bundleDir := os.Getenv("BUNDLE_DIR")
+	bundleDir := os.Getenv(EnvBundleDir)
 	if bundleDir == "" {
 		// If a relative path is used, then join with the current executable path...
 		fmt.Println("Environment variable BUNDLE_DIR not defined.")
@@ -188,7 +189,7 @@ func newApp(addr string, bundlePath string) (*http.Server, net.Listener) {
 	keyConfig := keysupport.GetKeyConfig()
 
 	if keyConfig.ServerKeyExists() {
-		log.Println(fmt.Sprintf("Loading existing server key from: %s", keyConfig.ServerKeyPath))
+		log.Println(fmt.Sprintf("Loading existing server EnvBundleDir from: %s", keyConfig.ServerKeyPath))
 		key, err := os.ReadFile(keyConfig.ServerKeyPath)
 		if err != nil {
 			panic(fmt.Sprintf("invalid SERVER_KEY path: %s", err))
@@ -199,7 +200,7 @@ func newApp(addr string, bundlePath string) (*http.Server, net.Listener) {
 		}
 		pair, err := tls.X509KeyPair(cert, key)
 		if err != nil {
-			panic(fmt.Sprintf("invalid cert/key pair: %s", err))
+			panic(fmt.Sprintf("invalid cert/EnvBundleDir pair: %s", err))
 		}
 		app.TLSConfig = &tls.Config{
 			// todo - tls client auth? Should we require client cert verification?
@@ -209,14 +210,14 @@ func newApp(addr string, bundlePath string) (*http.Server, net.Listener) {
 		if !keyConfig.CertDirExists() {
 			panic(fmt.Sprintf("Unable to locate certificate directory: %s", keyConfig.CertDir))
 		}
-		phrase := " Generating new root key and server keys."
+		phrase := " Generating new root EnvBundleDir and server keys."
 		if keyConfig.RootKeyExists() {
-			phrase = " Using existing root key to generate new server keys."
+			phrase = " Using existing root EnvBundleDir to generate new server keys."
 		}
 		log.Println("Server certificate not found." + phrase)
 		err := keyConfig.CreateSelfSignedKeys()
 		if err != nil {
-			panic(fmt.Sprintf("Automatic key generation failed: %s", err))
+			panic(fmt.Sprintf("Automatic EnvBundleDir generation failed: %s", err))
 		}
 	}
 

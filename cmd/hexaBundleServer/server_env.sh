@@ -1,6 +1,5 @@
 export PORT=8080
-export AUTHZEN_BUNDLE_DIR=deployments/authZen/bundles
-export AUTHZEN_USERPIP_FILE=deployments/authZen/users.json
+export BUNDLE_DIR=deployments/hexaBundleServer/resources/bundles
 export AUTHZEN_TKN_DIRECTORY=./.certs
 export AUTHZEN_TKN_PRIVKEYFILE=
 export AUTHZEN_TKN_MODE=ANON
