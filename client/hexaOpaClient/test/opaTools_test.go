@@ -31,6 +31,8 @@ func TestAnonymous(t *testing.T) {
 	fmt.Println(string(body))
 	reqInfo := input.Req
 
+	assert.Equal(t, server.Addr, input.Req.Host, "Check host is set")
+
 	assert.NotNil(t, reqInfo)
 	assert.True(t, strings.HasPrefix(reqInfo.ClientIp, "127.0.0.1:"))
 	reqTime := reqInfo.Time

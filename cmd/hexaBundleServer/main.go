@@ -200,7 +200,7 @@ func newApp(addr string, bundlePath string) (*http.Server, net.Listener) {
 		}
 		pair, err := tls.X509KeyPair(cert, key)
 		if err != nil {
-			panic(fmt.Sprintf("invalid cert/EnvBundleDir pair: %s", err))
+			panic(fmt.Sprintf("invalid cert/key pair: %s", err))
 		}
 		app.TLSConfig = &tls.Config{
 			// todo - tls client auth? Should we require client cert verification?

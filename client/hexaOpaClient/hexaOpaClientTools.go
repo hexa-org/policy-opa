@@ -16,6 +16,7 @@ import (
 type ReqParams struct {
 	ClientIp    string              `json:"ip,omitempty"`       // ClientIp is the network address of the requestor
 	Protocol    string              `json:"protocol,omitempty"` // Protocol is typically HTTP
+	Host        string              `json:"host,omitempty"`     // Host is the domain used in the request
 	Method      string              `json:"method,omitempty"`   // Method is typically the HTTP method
 	Path        string              `json:"path"`               // Path is the request path of the URL
 	QueryParam  map[string][]string `json:"param"`              // QueryParam are the parsed query parameters (ie. after ?)
@@ -138,6 +139,7 @@ func PrepareReqParams(r *http.Request, actionUris []string, resourceUris []strin
 	resp.Path = r.URL.Path
 	resp.QueryParam = r.URL.Query()
 	resp.Protocol = r.Proto
+	resp.Host = r.Host
 	resp.Method = r.Method
 	resp.Header = r.Header
 	resp.ActionUris = actionUris

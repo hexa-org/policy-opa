@@ -144,7 +144,7 @@ func TestResetAuth(t *testing.T) {
 func TestNewAppWithTransportLayerSecurity(t *testing.T) {
 	_, file, _, _ := runtime.Caller(0)
 	t.Setenv("SERVER_CERT", filepath.Join(file, "../test/server-cert.pem"))
-	t.Setenv("SERVER_KEY", filepath.Join(file, "../test/server-EnvBundleDir.pem"))
+	t.Setenv("SERVER_KEY", filepath.Join(file, "../test/server-key.pem"))
 	t.Setenv(keysupport.EnvCertDirectory, filepath.Join(file, "../test/"))
 	app, listener := newApp("localhost:0", DEF_TEST_BUNDLE_PATH)
 
@@ -156,7 +156,7 @@ func TestNewAppWithTransportLayerSecurity(t *testing.T) {
 	caCert := must(os.ReadFile(filepath.Join(file, "../test/ca-cert.pem")))
 	clientCert, _ := tls.X509KeyPair(
 		must(os.ReadFile(filepath.Join(file, "../test/client-cert.pem"))),
-		must(os.ReadFile(filepath.Join(file, "../test/client-EnvBundleDir.pem"))),
+		must(os.ReadFile(filepath.Join(file, "../test/client-key.pem"))),
 	)
 	caCertPool := x509.NewCertPool()
 	caCertPool.AppendCertsFromPEM(caCert)
@@ -179,7 +179,7 @@ func TestNewAppWithTransportLayerSecurity(t *testing.T) {
 func TestNewAppWithTLS_PanicsWithBadServerCertPath(t *testing.T) {
 	_, file, _, _ := runtime.Caller(0)
 	t.Setenv("SERVER_CERT", "/do-not-exist")
-	t.Setenv("SERVER_KEY", filepath.Join(file, "../test/server-EnvBundleDir.pem"))
+	t.Setenv("SERVER_KEY", filepath.Join(file, "../test/server-key.pem"))
 
 	assert.Panics(t, func() { newApp("localhost:0", DEF_TEST_BUNDLE_PATH) })
 }
@@ -196,7 +196,7 @@ func TestNewAppWithTLS_PanicsWithBadPair(t *testing.T) {
 	tmp := t.TempDir()
 
 	certFile := filepath.Join(tmp, fmt.Sprintf("%s-cert.pem", t.Name()))
-	keyFile := filepath.Join(tmp, fmt.Sprintf("%s-EnvBundleDir.pem", t.Name()))
+	keyFile := filepath.Join(tmp, fmt.Sprintf("%s-key.pem", t.Name()))
 	assert.NoError(t, os.WriteFile(
 		certFile,
 		[]byte("not a cert"),
@@ -204,7 +204,7 @@ func TestNewAppWithTLS_PanicsWithBadPair(t *testing.T) {
 	))
 	assert.NoError(t, os.WriteFile(
 		keyFile,
-		[]byte("not a EnvBundleDir"),
+		[]byte("not a key"),
 		0644,
 	))
 
