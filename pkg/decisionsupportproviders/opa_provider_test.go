@@ -90,7 +90,7 @@ func TestOpaDecisionProvider_AllowWithRequestErr(t *testing.T) {
 	query, _ := provider.BuildInput(req, nil, nil)
 
 	allow, err := provider.Allow(query)
-	assert.Equal(t, "oops", err.Error())
+	assert.Error(t, err, "oops")
 	assert.Equal(t, false, allow)
 }
 
@@ -104,6 +104,6 @@ func TestOpaDecisionProvider_AllowWithResponseErr(t *testing.T) {
 	query, _ := provider.BuildInput(req, nil, nil)
 
 	allow, err := provider.Allow(query)
-	assert.Equal(t, "invalid character '_' looking for beginning of value", err.Error())
+	assert.Error(t, err, "invalid character '_' looking for beginning of value")
 	assert.Equal(t, false, allow)
 }

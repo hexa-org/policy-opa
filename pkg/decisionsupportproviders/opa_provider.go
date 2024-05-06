@@ -65,7 +65,7 @@ func processResults(results rego.ResultSet) bool {
 
 	allowed := false
 	result := results[0].Expressions[0]
-	for k, _ := range result.Value.(map[string]interface{}) {
+	for k := range result.Value.(map[string]interface{}) {
 
 		if k == "allow" {
 			allowed = true
