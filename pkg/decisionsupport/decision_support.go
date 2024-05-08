@@ -10,6 +10,8 @@ type DecisionSupport struct {
 	Provider     DecisionProvider
 	Unauthorized http.HandlerFunc
 	Skip         []string
+	ActionMap    map[string]string // ActionMap converts a path into an actionUri (map[path]=urivalue
+	ResourceMap  map[string]string // ResourceMap converts a path into an resourceUri (map[path]=urivalue
 }
 
 func (d *DecisionSupport) Middleware(next http.Handler) http.Handler {
@@ -21,8 +23,19 @@ func (d *DecisionSupport) Middleware(next http.Handler) http.Handler {
 			}
 		}
 
+		var actionUris, resourceIds []string
+
+		resource, exist := d.ResourceMap[r.URL.Path]
+		if exist {
+			resourceIds = append(resourceIds, resource)
+		}
+		action, exist := d.ActionMap[r.URL.Path]
+		if exist {
+			actionUris = append(actionUris, action)
+		}
+
 		log.Println("Building decision request info.")
-		input, inputErr := d.Provider.BuildInput(r)
+		input, inputErr := d.Provider.BuildInput(r, actionUris, resourceIds)
 		if inputErr != nil {
 			d.Unauthorized(w, r)
 			return

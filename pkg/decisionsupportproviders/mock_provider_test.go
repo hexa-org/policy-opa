@@ -14,7 +14,7 @@ func TestBuildInput(t *testing.T) {
 
 	req, _ := http.NewRequest("GET", "/noop", nil)
 
-	input, _ := provider.BuildInput(req)
+	input, _ := provider.BuildInput(req, nil, nil)
 	casted := input.(map[string]string)
 
 	assert.Equal(t, "http:GET", casted["method"])
@@ -29,7 +29,7 @@ func TestAllow(t *testing.T) {
 
 	req, _ := http.NewRequest("GET", "/noop", nil)
 
-	input, _ := provider.BuildInput(req)
+	input, _ := provider.BuildInput(req, nil, nil)
 	allow, _ := provider.Allow(input)
 
 	assert.True(t, allow)
@@ -43,7 +43,7 @@ func TestAllow_notAllowed(t *testing.T) {
 
 	req, _ := http.NewRequest("GET", "/unauthorized", nil)
 
-	input, _ := provider.BuildInput(req)
+	input, _ := provider.BuildInput(req, nil, nil)
 	allow, _ := provider.Allow(input)
 
 	assert.False(t, allow)
