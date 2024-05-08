@@ -7,24 +7,30 @@ This integration includes:
 
 * [Hexa rego policy](deployments/hexaBundleServer/resources/bundles/bundle/hexaPolicy.rego) to evaluate IDQL policy statements in an OPA Policy Agent.
 * An OPA `hexaFilter` plugin enabling dynamic evaluation of IDQL Conditions.
-* An extended OPA server `hexaOpa` which runs as a normal OPA server but with the `hexaFilter` extension.
+* An extended OPA server `hexaOpa` which runs as a normal OPA server with the `hexaFilter` extension.
 * A client `opaTools` package which enables web applications to call OPA using a normalized query providing request and subject information for processing
-* A `testBundleServer` which can be used to deploy policy to one or more OPA Agents.
+* The `hexaBundleServer` which can be used to deploy policy to one or more OPA Agents.
+* An implementation of the OpenID Authzen Interop called [hexaAuthZen](cmd/hexaAuthZen/README.md).
 * Supported as an integration with the [Hexa Mapper Project](https://github.com/hexa-org/policy-mapper).
 
-## Introducing the Hexa OPA Server Integration
+## What is the HexaOPA Server?
 
 This integration of OPA follows the [Open Policy Agent extension mechanism](https://www.openpolicyagent.org/docs/latest/extensions/) to enable the processing if IDQL Condition clauses.
 The HexaOpa server is a normal OPA server and can run any rego policy. A docker image is available at: [independentid/hexaopa](https://hub.docker.com/r/independentid/hexaopa).
 
-Running `hexaOpa` works the same way as for opa. For more information, see the Open Policy Agent [Deployment Guide](https://www.openpolicyagent.org/docs/latest/deployments/).
+`hexaOpa` is deployed (e.g. as a sidecar) in the same way as an OPA Server. For more information, see the Open Policy Agent [Deployment Guide](https://www.openpolicyagent.org/docs/latest/deployments/).
 
 ### Building and Running Hexa OPA Locally
 
 Prerequisites:
-* [Go Lang 1.21](https://go.dev/doc/install)
+* [Go Lang 1.22](https://go.dev/doc/install)
 * [Docker](https://docs.docker.com/engine/install/)
 * [Git client](https://github.com/git-guides/install-git#)
+* [Hexa CLI Tool](https://github.com/hexa-org/policy-mapper)*
+
+> [!Tip]
+> The `hexa` CLI tool is available in the [Hexa Policy-Mapper project](https://github.com/hexa-org/policy-mapper). This command line tool can be used to load and
+> configure IDQL policies in the [HexaBundleServer](cmd/hexaBundleServer) and the[ HexaAuthZen](cmd/hexaAuthZen) interop test servers.
 
 With the above pre-requisites installed, clone the repository, change directory into the project and run the build.sh shell script. This will build a local docker image called hexaopa
 ```shell

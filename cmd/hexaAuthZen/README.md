@@ -7,15 +7,21 @@ between applications (policy enforcement points) and decision services (policy d
 * [AuthZEN Repository](https://github.com/openid/authzen)
 * [AuthZEN Interop](https://authzen-interop.net/docs/intro/)
 
-The HexaAuthZen server runs as a single server that combines the following components:
+In order to facilitate a simple monolithic server for interop purposes a number of components have been combined into
+a single server that include:
 * The AuthZen decision endpoint (`/access/v1/evaluation1`)
-* An OPA Server Bundle Endpoint (enabling policy retrievals and updates from the [Hexa CLI](https://github.com/hexa-org/policy-mapper/blob/main/docs/HexaAdmin.md))
+* An OPA Server Bundle endpoint (enabling IDQL policy retrievals and updates from the [Hexa CLI](https://github.com/hexa-org/policy-mapper/blob/main/docs/HexaAdmin.md))
 * A request mapper that converts AuthZen policy decision requests into Hexa Policy-OPA request
 * An embedded [Open Policy Agent](https://www.openpolicyagent.org) decision engine
+* Optional support for Bearer tokens to secure the bundle endpoint and optionally the AuthZen decision endpoints
 * A User Policy Information Provider that provides information about the demo app users
 * The set of IDQL policies that implements the TODO application policies.
 
-## TODO Application Scenario
+## The AuthZen Scenario
+
+### Introduction
+The AuthZen scenario implements a TODO application which then calls a backend acting as a policy enforcement point (PEP) that
+calls a policy decision point (PDP) that supports the Authzen evaluation endpoint.
 
 ### Actions
 
@@ -166,4 +172,16 @@ The following IDQL policies are used:
   ]
 }
 ```
+
+### Environment Variables
+
+| ENV Var               | Description                                                                                                                             |
+|-----------------------|-----------------------------------------------------------------------------------------------------------------------------------------|
+| PORT                  | The HTTP Port for all endpoints                                                                                                         |
+| AUTHZEN_BUNDLE_DIR    | The location of an OPA Bundle containing hexaPolicy.rego, and data.json containing the ToDo Application IDQL                            |
+| AUTHZEN_USERPIP_FILE  | The location of a JSON file containing the test users                                                                                   |
+| AUTHZEN_TKN_DIRECTORY | THe location of a directory that contains the JWT token issuer public key (file issuer-cert.pem)                                        |
+| AUTHZEN_TKN_MODE      | If set to "ANON", all access is unauthenticated, "BUNDLE", the bundle endpoint is protected. "ALL" (default) will enforce all endpoints |
+| TKN_ISSUER            | The key id (kid) of the issuer - used to match the kid in a JWT with the public key                                                     |
+
 
