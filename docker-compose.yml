@@ -17,7 +17,7 @@ services:
       - "./deployments/hexaBundleServer/resources:/home/resources"
       - "./.certs:/home/certs:ro"
 
-  hexa-opa-agent:
+  hexa-opa-sidecar:
     image: hexaopa
     container_name: hexa-opa-server
     ports:
@@ -34,6 +34,7 @@ services:
       - "./deployments/hexaOpaServer/config:/home/config:ro"
       - "./deployments/hexaOpaServer/.opa:/app/.opa"
       - "./.certs:/home/certs:ro"
+
   hexa-authzen:
     container_name: hexa-authzen
     image: hexaopa
@@ -50,4 +51,14 @@ services:
       - "./deployments/authZen:/home/authZen"
       - "./.certs:/home/certs:ro"
 
-
+  demo-app:
+    image: hexaopa
+    container_name: hexa-demo
+    ports:
+      - "8886:8886"
+    command: /app/hexaIndustriesDemo
+    depends_on:
+      - hexa-opa-sidecar
+    environment:
+      PORT: 8886
+      OPA_SERVER_URL: http://opa-agent:8887/v1/data/hexaPolicy
