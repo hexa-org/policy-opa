@@ -2,6 +2,7 @@ package tokensupport
 
 import (
 	"bytes"
+	"context"
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
@@ -15,8 +16,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/MicahParks/keyfunc"
-	"github.com/golang-jwt/jwt/v4"
+	"github.com/MicahParks/jwkset"
+	"github.com/MicahParks/keyfunc/v3"
+	"github.com/golang-jwt/jwt/v5"
 	"github.com/google/uuid"
 )
 
@@ -27,7 +29,7 @@ const (
 	EnvTknKeyDirectory   string = "AUTHZEN_TKN_DIRECTORY"
 	EnvTknPrivateKeyFile string = "AUTHZEN_TKN_PRIVKEYFILE"
 	EnvTknPubKeyFile     string = "AUTHZEN_TKN_PUBKEYFILE"
-	// EnvAllowAnon         string = "AUTHZEN_TKN_DISABLE"
+
 	DefTknPrivateKeyFile string = "issuer-priv.pem"
 	DefTknPublicKeyFile  string = "issuer-cert.pem"
 	EnvTknEnforceMode    string = "AUTHZEN_TKN_MODE"
@@ -47,7 +49,7 @@ type JwtAuthToken struct {
 type TokenHandler struct {
 	TokenIssuer    string
 	PrivateKey     *rsa.PrivateKey
-	PublicKey      *keyfunc.JWKS
+	PublicKey      keyfunc.Keyfunc
 	KeyDir         string
 	PrivateKeyPath string
 	PublicKeyPath  string
@@ -131,19 +133,33 @@ func TokenValidator(name string) (*TokenHandler, error) {
 		return nil, err
 	}
 
-	pubKey := convertJWKS(name, publicKey)
+	pubKeyFunc := convertJWKS(name, publicKey)
 	valConfig.TokenIssuer = name
-	valConfig.PublicKey = pubKey
+	valConfig.PublicKey = pubKeyFunc
 	return valConfig, nil
 }
 
-func convertJWKS(name string, pubKey *rsa.PublicKey) *keyfunc.JWKS {
-	givenKey := keyfunc.NewGivenRSACustomWithOptions(pubKey, keyfunc.GivenKeyOptions{
-		Algorithm: "RS256",
+func convertJWKS(name string, pubKey *rsa.PublicKey) keyfunc.Keyfunc {
+
+	jwk, _ := jwkset.NewJWKFromKey(pubKey, jwkset.JWKOptions{
+		Metadata: jwkset.JWKMetadataOptions{
+			ALG: "RS256",
+			KID: name,
+		},
 	})
-	givenKeys := make(map[string]keyfunc.GivenKey)
-	givenKeys[name] = givenKey
-	return keyfunc.NewGiven(givenKeys)
+
+	store := jwkset.NewMemoryStorage()
+	_ = store.KeyWrite(context.Background(), jwk)
+
+	options := keyfunc.Options{
+		Storage: store,
+		Ctx:     context.Background(),
+	}
+
+	jwks, _ := keyfunc.New(options)
+
+	return jwks
+
 }
 
 func (a *TokenHandler) loadIssuer(name string) error {
@@ -246,7 +262,7 @@ func (a *TokenHandler) ValidateAuthorization(r *http.Request, scopes []string) (
 	case ModeEnforceAnonymous:
 		return nil, http.StatusOK // Anonymous mode should only be used for testing!
 	case ModeEnforceBundle:
-		// If the request is for a decision and we are enforcing bundle only, return success
+		// If the request is for a decision, and we are enforcing bundle only, return success
 		if scopeMatch(scopes, []string{ScopeDecision}) {
 			return nil, http.StatusOK // Decisions can proceed without authorization
 		}
