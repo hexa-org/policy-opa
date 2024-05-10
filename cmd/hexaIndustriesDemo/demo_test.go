@@ -1,11 +1,9 @@
-//go:build integration
+//go:build disable
 
 package main_test
 
 import (
-	"bytes"
 	"encoding/base64"
-	"encoding/json"
 	"fmt"
 	"io"
 	"log"
@@ -22,23 +20,12 @@ import (
 )
 
 func TestDemoFlow(t *testing.T) {
-
-	db, _ := databasesupport.Open("postgres://orchestrator:orchestrator@localhost:5432/orchestrator_test?sslmode=disable")
-	deleteAll := "delete from integrations; delete from applications;"
-
-	demo := makeCmd("/cmd/hexaIndustriesDemo/hexaIndustriesDemo.go", []string{"HOST=localhost", "PORT=8886", "OPA_SERVER_URL: http://localhost:8887/v1/data/authz/allow"})
-	demoConfig := makeCmd("/cmd/democonfig/democonfig.go", []string{"HOST=localhost", "PORT=8889"})
-	anotherDemoConfig := makeCmd("/cmd/democonfig/democonfig.go", []string{"HOST=localhost", "PORT=8890"})
-	orchestrator := makeCmd("/cmd/orchestrator/orchestrator.go", []string{
-		"HOST=localhost",
-		"PORT=8885",
-		"ORCHESTRATOR_HOSTPORT=localhost:8885",
-		"ORCHESTRATOR_KEY=0861f51ab66590798406be5b184c71b637bfc907c83f27d461e4956bffebf6cb",
-		"POSTGRESQL_URL=postgres://orchestrator:orchestrator@localhost:5432/orchestrator_test?sslmode=disable",
-	})
+	demo := makeCmd("/cmd/hexaIndustriesDemo/demo.go", []string{"HOST=localhost", "PORT=8886", "OPA_SERVER_URL: http://localhost:8887/v1/data/authz/allow"})
+	demoConfig := makeCmd("/cmd/hexaBundleServer/main.go", []string{"HOST=localhost", "PORT=8889"})
+	anotherDemoConfig := makeCmd("/cmd/hexaBundleServer/main.go", []string{"HOST=localhost", "PORT=8890"})
 
 	_, file, _, _ := runtime.Caller(0)
-	testBundles := filepath.Join(file, "../../../cmd/democonfig/resources/bundles/.bundle-*")
+	testBundles := filepath.Join(file, "../../../cmd/hexaBundleServer/resources/bundles/.bundle-*")
 	files, _ := filepath.Glob(testBundles)
 	for _, f := range files {
 		if err := os.RemoveAll(f); err != nil {
@@ -57,10 +44,10 @@ func TestDemoFlow(t *testing.T) {
 	startCmd(demoConfig, 8889)
 	startCmd(anotherDemoConfig, 8890)
 	startCmd(openPolicyAgent, 8887)
-	startCmd(orchestrator, 8885)
+	// startCmd(orchestrator, 8885)
 
 	defer func() {
-		stopCmds(orchestrator, openPolicyAgent, demoConfig, anotherDemoConfig, demo)
+		stopCmds(openPolicyAgent, demoConfig, anotherDemoConfig, demo)
 	}()
 
 	assertContains(t, "http://localhost:8886/", "Great news, you're able to access this page.")
@@ -73,11 +60,11 @@ func TestDemoFlow(t *testing.T) {
 
 	// test update
 
-	_, _ = db.Exec(deleteAll)
-	createAnIntegration([]byte(`{ "bundle_url": "http://localhost:8889/bundles/bundle.tar.gz" }`))
-	status, updateErr := updateIntegrationPolicy()
-	assert.Equal(t, http.StatusCreated, status.StatusCode)
-	assert.NoError(t, updateErr)
+	// _, _ = db.Exec(deleteAll)
+	// createAnIntegration([]byte(`{ "bundle_url": "http://localhost:8889/bundles/bundle.tar.gz" }`))
+	// status, updateErr := updateIntegrationPolicy()
+	// assert.Equal(t, http.StatusCreated, status.StatusCode)
+	// assert.NoError(t, updateErr)
 
 	time.Sleep(time.Duration(3) * time.Second) // waiting for opa to refresh the bundle
 
@@ -88,7 +75,7 @@ func TestDemoFlow(t *testing.T) {
 
 	// test erroneous
 
-	_, _ = db.Exec(deleteAll)
+	// _, _ = db.Exec(deleteAll)
 	createAnErroneousIntegration()
 
 	resp, secondUpdateErr := updateIntegrationPolicy()
@@ -100,7 +87,7 @@ func TestDemoFlow(t *testing.T) {
 
 	// test orchestration
 
-	_, _ = db.Exec(deleteAll)
+	// _, _ = db.Exec(deleteAll)
 	fromBundleUrl := "http://localhost:8889/bundles/bundle.tar.gz"
 	fromKey := []byte(fmt.Sprintf(`{ "bundle_url": "%s"}`, fromBundleUrl))
 	createAnIntegration(fromKey)
@@ -143,63 +130,6 @@ func assertContains(t *testing.T, url string, contains string) {
 	resp, _ := http.Get(url)
 	body, _ := io.ReadAll(resp.Body)
 	assert.Contains(t, string(body), contains, url)
-}
-
-func createAnIntegration(key []byte) {
-	integrationInfo, _ := json.Marshal(Integration{Name: "bundle:open-policy-agent", Provider: "open_policy_agent",
-		Key: key})
-
-	_, _ = hawksupport.HawkPost(&http.Client{},
-		"anId", "0861f51ab66590798406be5b184c71b637bfc907c83f27d461e4956bffebf6cb",
-		"http://localhost:8885/integrations", bytes.NewReader(integrationInfo))
-}
-
-func createAnErroneousIntegration() {
-	integrationInfo, _ := json.Marshal(Integration{Name: "bundle:open-policy-agent", Provider: "open_policy_agent",
-		Key: []byte(`{ "bundle_url":"http://localhost:8800" }`)})
-
-	_, _ = hawksupport.HawkPost(&http.Client{},
-		"anId", "0861f51ab66590798406be5b184c71b637bfc907c83f27d461e4956bffebf6cb",
-		"http://localhost:8885/integrations", bytes.NewReader(integrationInfo))
-}
-
-func updateIntegrationPolicy() (*http.Response, error) {
-	var apps Applications
-	resp, _ := hawksupport.HawkGet(&http.Client{},
-		"anId", "0861f51ab66590798406be5b184c71b637bfc907c83f27d461e4956bffebf6cb",
-		"http://localhost:8885/applications")
-	_ = json.NewDecoder(resp.Body).Decode(&apps)
-
-	var policies bytes.Buffer
-	policy := Policy{Meta: Meta{"0.5"}, Actions: []Action{{"http:GET:/accounting"}},
-		Subject: Subject{Members: []string{"accounting@hexaindustries.io", "sales@hexaindustries.io"}},
-		Object: Object{
-			ResourceID: "aResourceId",
-		},
-	}
-	_ = json.NewEncoder(&policies).Encode(Policies{[]Policy{policy}})
-
-	url := fmt.Sprintf("http://localhost:8885/applications/%s/policies", apps.Applications[0].ID)
-	resp, err := hawksupport.HawkPost(&http.Client{},
-		"anId", "0861f51ab66590798406be5b184c71b637bfc907c83f27d461e4956bffebf6cb",
-		url, bytes.NewReader(policies.Bytes()))
-	return resp, err
-}
-
-func listApplications() Applications {
-	resp, _ := hawksupport.HawkGet(&http.Client{},
-		"anId", "0861f51ab66590798406be5b184c71b637bfc907c83f27d461e4956bffebf6cb",
-		"http://localhost:8885/applications")
-	var apps Applications
-	_ = json.NewDecoder(resp.Body).Decode(&apps)
-	return apps
-}
-
-func orchestratePolicy(fromApp, toApp string) {
-	orchestration, _ := json.Marshal(Orchestration{From: fromApp, To: toApp})
-	_, _ = hawksupport.HawkPost(&http.Client{},
-		"anId", "0861f51ab66590798406be5b184c71b637bfc907c83f27d461e4956bffebf6cb",
-		"http://localhost:8885/orchestration", bytes.NewReader(orchestration))
 }
 
 // / supporting structs

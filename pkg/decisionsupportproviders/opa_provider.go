@@ -16,17 +16,13 @@ type OpaDecisionProvider struct {
 	Principal string
 }
 
-type OpaQuery struct {
-	Input *opaTools.OpaInfo `json:"input"`
-}
-
 func (o OpaDecisionProvider) BuildInput(r *http.Request, actionUris []string, resourceUris []string) (any interface{}, err error) {
 	info := opaTools.PrepareInput(r, actionUris, resourceUris)
 	if o.Principal != "" {
 		info.Subject.Sub = o.Principal
 	}
 
-	return OpaQuery{info}, nil
+	return info, nil
 }
 
 type HTTPClient interface {
@@ -38,7 +34,7 @@ type OpaResponse struct {
 }
 
 func (o OpaDecisionProvider) Allow(any interface{}) (bool, error) {
-	marshal, _ := json.Marshal(any.(OpaQuery))
+	marshal, _ := json.Marshal(any.(*opaTools.OpaInfo))
 	request, _ := http.NewRequest("POST", o.Url, bytes.NewBuffer(marshal))
 	request.Header.Set("Content-Type", "application/json; charset=UTF-8")
 	response, err := o.Client.Do(request)

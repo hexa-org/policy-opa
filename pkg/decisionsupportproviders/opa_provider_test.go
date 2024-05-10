@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"testing"
 
+	opaTools "github.com/hexa-org/policy-opa/client/hexaOpaClient"
 	"github.com/hexa-org/policy-opa/pkg/decisionsupportproviders"
 	"github.com/open-policy-agent/opa/rego"
 	"github.com/stretchr/testify/assert"
@@ -22,7 +23,7 @@ func TestOpaDecisionProvider_BuildInput(t *testing.T) {
 	req, _ := http.NewRequest("POST", "https://aDomain.com/noop", nil)
 	req.RequestURI = "/noop"
 	query, _ := provider.BuildInput(req, nil, nil)
-	casted := query.(decisionsupportproviders.OpaQuery).Input
+	casted := query.(*opaTools.OpaInfo)
 	assert.Equal(t, "POST", casted.Req.Method)
 	assert.Equal(t, "aDomain.com", casted.Req.Host)
 	assert.Equal(t, "/noop", casted.Req.Path)
@@ -38,7 +39,7 @@ func TestOpaDecisionProvider_BuildInput_RemovesQueryParams(t *testing.T) {
 	req.RequestURI = "/noop"
 	query, _ := provider.BuildInput(req, nil, nil)
 
-	assert.Equal(t, "/noop/", query.(decisionsupportproviders.OpaQuery).Input.Req.Path)
+	assert.Equal(t, "/noop/", query.(*opaTools.OpaInfo).Req.Path)
 }
 
 type MockClient struct {

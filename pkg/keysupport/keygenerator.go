@@ -45,6 +45,7 @@ const (
 	EnvCertDirectory string = "HEXA_CERT_DIRECTORY" // The location where keys are stored.
 	EnvServerCert    string = "SERVER_CERT"
 	EnvServerKey     string = "SERVER_KEY_PATH"
+	EnvServerDNS     string = "SERVER_DNS_NAME"
 	EnvAutoCreate    string = "HEXA_AUTO_SELFSIGN"
 )
 
@@ -227,11 +228,21 @@ func (config KeyConfig) CreateSelfSignedKeys() (err error) {
 	}
 
 	// set up our server certificate
+
+	dnsNames := []string{}
+
+	domainName := os.Getenv(EnvServerDNS)
+	if domainName == "" {
+		dnsNames = []string{"hexa_bundle-server", "hexa-opaBundle-server"}
+	} else {
+		dnsNames = strings.Split(domainName, ",")
+	}
+
 	certPEM, certPrivKeyPEM, err := config.generateCert(
 		ca,
 		caPrivKey,
 		[]x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
-		[]string{"hexa-bundle-server"},
+		dnsNames,
 	)
 	if err != nil {
 		return err

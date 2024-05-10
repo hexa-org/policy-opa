@@ -26,13 +26,13 @@ const (
 	ScopeBundle          string = "bundle"
 	ScopeDecision        string = "az"
 	ScopeAdmin           string = "root"
-	EnvTknKeyDirectory   string = "AUTHZEN_TKN_DIRECTORY"
-	EnvTknPrivateKeyFile string = "AUTHZEN_TKN_PRIVKEYFILE"
-	EnvTknPubKeyFile     string = "AUTHZEN_TKN_PUBKEYFILE"
+	EnvTknKeyDirectory   string = "TKN_DIRECTORY"
+	EnvTknPrivateKeyFile string = "TKN_PRIVKEYFILE"
+	EnvTknPubKeyFile     string = "TKN_PUBKEYFILE"
 
 	DefTknPrivateKeyFile string = "issuer-priv.pem"
 	DefTknPublicKeyFile  string = "issuer-cert.pem"
-	EnvTknEnforceMode    string = "AUTHZEN_TKN_MODE"
+	EnvTknEnforceMode    string = "TKN_MODE"
 	EnvTknIssuer         string = "TKN_ISSUER"
 
 	ModeEnforceAnonymous = "ANON"
@@ -124,6 +124,11 @@ func TokenValidator(name string) (*TokenHandler, error) {
 
 	pemBytes, err := os.ReadFile(valConfig.PublicKeyPath)
 	if err != nil {
+		// If we are not enforcing then issuer does not matter
+		if valConfig.Mode == ModeEnforceAnonymous {
+			return valConfig, nil
+		}
+
 		return nil, errors.New(fmt.Sprintf("Unalbe to load public key (%s): %s", valConfig.PublicKeyPath, err.Error()))
 	}
 

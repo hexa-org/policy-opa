@@ -1,40 +1,45 @@
 name: hexa-policy-opa
 
 services:
-  bundle-server:
+  # hexa-opaBundle-server is an HTTP Bundle endpoint that can be used by Hexa-Orchestrator or Hexa CLI to configure policy to be delivered to OPA Servers.
+  hexa-opaBundle-server:
     image: hexaopa
-    container_name: hexa-bundle-server
+    container_name: hexa-opaBundle-server
     ports:
       - "8889:8889"
     command: /app/hexaBundleServer
     environment:
       PORT: 8889
+      TKN_DIRECTORY: "/home/certs"
       HEXA_CERT_DIRECTORY: "/home/certs"
       SERVER_CERT: "/home/certs/server-cert.pem"
       SERVER_KEY: "/home/certs/server-key.pem"
       BUNDLE_DIR: "/home/resources/bundles"
+      SERVER_DNS_NAME: "hexa-opaBundle-server"
+      TKN_MODE: "ANON"
     volumes:
       - "./deployments/hexaBundleServer/resources:/home/resources"
-      - "./.certs:/home/certs:ro"
+      - "./.certs:/home/certs"
 
+  # hexa-opa-sidecar is an OPA Server instance extended to support IDQL Filter expressions (run time evaluation)
   hexa-opa-sidecar:
     image: hexaopa
     container_name: hexa-opa-server
     ports:
       - "8887:8887"
     depends_on:
-      - bundle-server
+      - hexa-opaBundle-server
     command: /app/hexaOpa run --server --addr :8887 --log-level debug -c /home/config/config.yaml
     environment:
       # These environment values are referenced in ./deployments/hexaOpaServer/config/config.yaml
-      HEXA_CERT_DIRECTORY: "/home/certs"
-      HEXA_CONFIG_URL: "https://hexa-bundle-server:8889"
+      HEXA_CONFIG_URL: "https://hexa-opaBundle-server:8889"
       HEXA_CA_CERT: "/home/certs/ca-cert.pem"
     volumes:
       - "./deployments/hexaOpaServer/config:/home/config:ro"
       - "./deployments/hexaOpaServer/.opa:/app/.opa"
       - "./.certs:/home/certs:ro"
 
+  # hexa-authzen is a prototype/demonstration PDP intended to implement the OpenID AuthZen Interop Scenario
   hexa-authzen:
     container_name: hexa-authzen
     image: hexaopa
@@ -46,11 +51,12 @@ services:
       AUTHZEN_BUNDLE_DIR: "/home/authZen/bundles"
       AUTHZEN_USERPIP_FILE: "/home/authZen/users.json"
       AUTHZEN_TOKEN_DIRECTORY: "/home/certs"
-      AUTHZEN_TKN_MODE: "BUNDLE"
+      TKN_MODE: "BUNDLE"
     volumes:
       - "./deployments/authZen:/home/authZen"
       - "./.certs:/home/certs:ro"
 
+  # demo-app is a demonstration web site that uses the hexa-opa-sidecar to authenticate requests
   demo-app:
     image: hexaopa
     container_name: hexa-demo
@@ -61,4 +67,4 @@ services:
       - hexa-opa-sidecar
     environment:
       PORT: 8886
-      OPA_SERVER_URL: http://opa-agent:8887/v1/data/hexaPolicy
+      OPA_SERVER_URL: http://hexa-opa-server:8887/v1/data/hexaPolicy

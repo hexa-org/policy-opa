@@ -180,8 +180,8 @@ The following IDQL policies are used:
 | PORT                  | The HTTP Port for all endpoints                                                                                                         |
 | AUTHZEN_BUNDLE_DIR    | The location of an OPA Bundle containing hexaPolicy.rego, and data.json containing the ToDo Application IDQL                            |
 | AUTHZEN_USERPIP_FILE  | The location of a JSON file containing the test users                                                                                   |
-| AUTHZEN_TKN_DIRECTORY | THe location of a directory that contains the JWT token issuer public key (file issuer-cert.pem)                                        |
-| AUTHZEN_TKN_MODE      | If set to "ANON", all access is unauthenticated, "BUNDLE", the bundle endpoint is protected. "ALL" (default) will enforce all endpoints |
+| TKN_DIRECTORY | THe location of a directory that contains the JWT token issuer public key (file issuer-cert.pem)                                        |
+| TKN_MODE      | If set to "ANON", all access is unauthenticated, "BUNDLE", the bundle endpoint is protected. "ALL" (default) will enforce all endpoints |
 | TKN_ISSUER            | The key id (kid) of the issuer - used to match the kid in a JWT with the public key                                                     |
 
 
