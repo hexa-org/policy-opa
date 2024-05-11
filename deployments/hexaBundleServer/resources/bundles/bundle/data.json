@@ -1,11 +1,20 @@
 {
   "policies": [
     {
-      "meta": {"version": "0.6"},
-      "actions": [{"actionUri": "http:GET:/"}],
+      "meta": {
+        "version": "0.6",
+        "policyId": "getRootPage",
+        "description": "Retrieve the root page open to anyone"
+      },
+      "actions": [
+        {
+          "actionUri": "http:GET:/"
+        }
+      ],
       "subject": {
         "members": [
-          "any", "anyauthenticated"
+          "any",
+          "anyauthenticated"
         ]
       },
       "object": {
@@ -13,8 +22,15 @@
       }
     },
     {
-      "meta": {"version": "0.6"},
-      "actions": [{"actionUri": "sales"}],
+      "meta": {
+        "version": "0.6",
+        "policyId": "getSales"
+      },
+      "actions": [
+        {
+          "actionUri": "sales"
+        }
+      ],
       "subject": {
         "members": [
           "anyauthenticated",
@@ -27,8 +43,18 @@
       }
     },
     {
-      "meta": {"version": "0.6"},
-      "actions": [{"actionUri": "http:GET:/accounting"}, {"actionUri": "http:POST:/accounting"}],
+      "meta": {
+        "version": "0.6",
+        "policyId": "getAccounting"
+      },
+      "actions": [
+        {
+          "actionUri": "http:GET:/accounting"
+        },
+        {
+          "actionUri": "http:POST:/accounting"
+        }
+      ],
       "subject": {
         "members": [
           "accounting@hexaindustries.io"
@@ -39,8 +65,15 @@
       }
     },
     {
-      "meta": {"version": "0.6"},
-      "actions": [{"actionUri": "http:GET:/humanresources"}],
+      "meta": {
+        "version": "0.6",
+        "policyId": "getHumanResources"
+      },
+      "actions": [
+        {
+          "actionUri": "http:GET:/humanresources"
+        }
+      ],
       "subject": {
         "members": [
           "humanresources@hexaindustries.io"

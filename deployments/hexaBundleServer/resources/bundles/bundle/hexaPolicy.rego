@@ -3,181 +3,192 @@ package hexaPolicy
 # Rego Policy Interpreter for IDQL V0.62.1b (IDQL)
 import rego.v1
 
-import data.policies
+import data.bundle.policies
 
-# Returns whether the current operation is allowed
-allow if {
-	count(allowSet) > 0
+
+policies_evaluated := count(policies)
+
+# Returns the list of matching policy names based on current request
+allow_set contains policy_id if {
+	some policy in policies
+
+	# return id of the policy
+	policy_id := sprintf("%s", [policy.meta.policyId])
+    #policy_id := sprintf("%s", ["test"])
+
+	subject_match(policy.subject, input.subject, input.req)
+
+	actions_match(policy.actions, input.req)
+
+	object_match(policy.object, input.req)
+
+	condition_match(policy, input)
 }
 
 # Returns the list of possible actions allowed (e.g. for UI buttons)
-actionRights contains name if {
+action_rights contains name if {
 	some policy in policies
-	policy.meta.policyId in allowSet
+	policy.meta.policyId in allow_set
 
 	some action in policy.actions
-	name := sprintf("%s/%s", [policy.meta.policyId, action.actionUri])
+	name := sprintf("%s:%s", [policy.meta.policyId, action.actionUri])
 }
 
-# Returns the list of matching policy names based on current request
-allowSet contains name if {
-	some policy in policies
-	subjectMatch(policy.subject, input.subject, input.req)
-	actionsMatch(policy.actions, input.req)
-	objectMatch(policy.object, input.req)
-	conditionMatch(policy, input)
-
-	name := policy.meta.policyId # this will be id of the policy
+# Returns whether the current operation is allowed
+allow if {
+	count(allow_set) > 0
 }
 
-subjectMatch(psubject, _, _) if {
+subject_match(psubject, _, _) if {
 	# Match if no members value specified
 	not psubject.members
 }
 
-subjectMatch(psubject, insubject, req) if {
+subject_match(psubject, insubject, req) if {
 	# Match if no members value specified
 	some member in psubject.members
-	subjectMemberMatch(member, insubject, req)
+	subject_member_match(member, insubject, req)
 }
 
-subjectMemberMatch(member, _, _) if {
+subject_member_match(member, _, _) if {
 	# If policy is any that we will skip processing of subject
 	lower(member) == "any"
 }
 
-subjectMemberMatch(member, insubj, _) if {
+subject_member_match(member, insubj, _) if {
 	# anyAutheticated - A match occurs if input.subject has a value other than anonymous and exists.
 	insubj.sub # check sub exists
 	lower(member) == "anyauthenticated"
 }
 
 # Check for match based on user:<sub>
-subjectMemberMatch(member, insubj, _) if {
+subject_member_match(member, insubj, _) if {
 	startswith(lower(member), "user:")
 	user := substring(member, 5, -1)
 	lower(user) == lower(insubj.sub)
 }
 
 # Check for match if sub ends with domain
-subjectMemberMatch(member, insubj, _) if {
+subject_member_match(member, insubj, _) if {
 	startswith(lower(member), "domain:")
 	domain := lower(substring(member, 7, -1))
 	endswith(lower(insubj.sub), domain)
 }
 
 # Check for match based on role
-subjectMemberMatch(member, insubj, _) if {
+subject_member_match(member, insubj, _) if {
 	startswith(lower(member), "role:")
 	role := substring(member, 5, -1)
 	role in insubj.roles
 }
 
-subjectMemberMatch(member, _, req) if {
-    startswith(lower(member), "net:")
+subject_member_match(member, _, req) if {
+	startswith(lower(member), "net:")
 	cidr := substring(member, 4, -1)
-	addr := split(req.ip, ":")  # Split because IP is address:port
+	addr := split(req.ip, ":") # Split because IP is address:port
 	net.cidr_contains(cidr, addr[0])
 }
 
-actionsMatch(actions, _) if {
+actions_match(actions, _) if {
 	# no actions is a match
 	not actions
 }
 
-actionsMatch(actions, req) if {
+actions_match(actions, req) if {
 	some action in actions
-	actionMatch(action, req)
+	action_match(action, req)
 }
 
-actionMatch(action, req) if {
+action_match(action, req) if {
 	# Check for match based on ietf http
-	checkIetfMatch(action.actionUri, req)
+	check_http_match(action.actionUri, req)
 }
 
-actionMatch(action, req) if {
+action_match(action, req) if {
 	action.actionUri # check for an action
 	count(req.actionUris) > 0
 
 	# Check for a match based on req.ActionUris and actionUri
-	checkUrnMatch(action.actionUri, req.actionUris)
+	check_urn_match(action.actionUri, req.actionUris)
 }
 
-checkUrnMatch(policyUri, actionUris) if {
+check_urn_match(policyUri, actionUris) if {
 	some action in actionUris
 	lower(policyUri) == lower(action)
 }
 
-checkIetfMatch(actionUri, req) if {
+check_http_match(actionUri, req) if {
 	# first match the rule against literals
-	components := split(lower(actionUri), ":")
-	count(components) > 2
-	components[0] == "ietf"
-	startswith(components[1], "http")
+	comps := split(lower(actionUri), ":")
+	count(comps) > 1
 
-	startswith(lower(input.req.protocol), "http")
-	checkHttpMethod(components[2], req.method)
+	startswith(lower(comps[0]), "http")
+	startswith(lower(req.protocol), "http")
 
-	checkPath(components[3], req)
+	check_http_method(comps[1], req.method)
+
+	pathcomps := array.slice(comps, 2, count(comps))
+	path := concat(":", pathcomps)
+	check_path(path, req)
 }
 
-objectMatch(object, req) if {
-    not object
-    not object.resource_id
+object_match(object, _) if {
+	not object.resource_id
 }
 
-objectMatch(object, req) if {
+object_match(object, req) if {
 	object.resource_id
 
-	some reqUri in req.resourceIds
-    lower(object.resource_id) == lower(reqUri)
+	some request_uri in req.resourceIds
+	lower(object.resource_id) == lower(request_uri)
 }
 
-checkHttpMethod(allowMask, _) if {
+check_http_method(allowMask, _) if {
 	contains(allowMask, "*")
 }
 
-checkHttpMethod(allowMask, reqMethod) if {
+check_http_method(allowMask, reqMethod) if {
 	startswith(allowMask, "!")
 
 	not contains(allowMask, lower(reqMethod))
 }
 
-checkHttpMethod(allowMask, reqMethod) if {
+check_http_method(allowMask, reqMethod) if {
 	not startswith(allowMask, "!")
 	contains(allowMask, lower(reqMethod))
 }
 
-checkPath(path, req) if {
+check_path(path, req) if {
 	path # if path specified it must match
-	glob.match(path, ["*"], req.path)
+    glob.match(path, ["*"], req.path)
 }
 
-checkPath(path, _) if {
+check_path(path, _) if {
 	not path # if path not specified, it will not be matched
 }
 
-conditionMatch(policy, _) if {
+condition_match(policy, _) if {
 	not policy.condition # Most policies won't have a condition
 }
 
-conditionMatch(policy, inreq) if {
+condition_match(policy, inreq) if {
 	policy.condition
-    not policy.condition.action  # Default is to allow
+	not policy.condition.action # Default is to allow
 	hexaFilter(policy.condition.rule, inreq) # HexaFilter evaluations the rule for a match against input
 }
 
-conditionMatch(policy, inreq) if {
+condition_match(policy, inreq) if {
 	policy.condition
-    action(policy.condition.action)  # if defined, action must be "allow"
+	action_allow(policy.condition.action) # if defined, action must be "allow"
 	hexaFilter(policy.condition.rule, inreq) # HexaFilter evaluations the rule for a match against input
 }
 
-conditionMatch(policy, inreq) if {
-    # If action is deny, then hexaFilter must be false
+condition_match(policy, inreq) if {
+	# If action is deny, then hexaFilter must be false
 	policy.condition
-    not action(policy.condition.action)
+	not action_allow(policy.condition.action)
 	not hexaFilter(policy.condition.rule, inreq) # HexaFilter evaluations the rule for a match against input
 }
 
-action(val) if lower(val) == "allow"
+# Evaluate whether the condition is set to allow
+action_allow(val) if lower(val) == "allow"

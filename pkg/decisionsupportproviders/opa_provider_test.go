@@ -10,7 +10,6 @@ import (
 
 	opaTools "github.com/hexa-org/policy-opa/client/hexaOpaClient"
 	"github.com/hexa-org/policy-opa/pkg/decisionsupportproviders"
-	"github.com/open-policy-agent/opa/rego"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 )
@@ -55,19 +54,16 @@ func (m *MockClient) Do(_ *http.Request) (*http.Response, error) {
 
 func TestOpaDecisionProvider_Allow(t *testing.T) {
 	mockClient := new(MockClient)
-	expressionValue := rego.ExpressionValue{
-		Value: map[string]interface{}{
-			"allow": true,
+
+	results := decisionsupportproviders.OpaResponse{
+		DecisionId: "1234",
+		Result: decisionsupportproviders.HexaResult{
+			Allow: true,
 		},
-		Text:     "data.hexaPolicy",
-		Location: nil,
+		Warning:     nil,
+		Explanation: nil,
 	}
-	results := rego.ResultSet{
-		rego.Result{
-			Expressions: []*rego.ExpressionValue{&expressionValue},
-			Bindings:    nil,
-		},
-	}
+
 	resultBytes, _ := json.Marshal(results)
 	mockClient.response = resultBytes
 	provider := decisionsupportproviders.OpaDecisionProvider{Client: mockClient, Url: "aUrl"}

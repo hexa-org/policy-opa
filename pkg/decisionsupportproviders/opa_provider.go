@@ -3,12 +3,17 @@ package decisionsupportproviders
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"io"
+	"log"
 	"net/http"
+	"os"
 
 	opaTools "github.com/hexa-org/policy-opa/client/hexaOpaClient"
-	"github.com/open-policy-agent/opa/rego"
 )
+
+const EnvOpaDebug string = "HEXAOPA_DETAIL"
 
 type OpaDecisionProvider struct {
 	Client    HTTPClient
@@ -29,44 +34,67 @@ type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
+type OpaRestQuery struct {
+	Input opaTools.OpaInfo `json:"input"`
+}
+
+type HexaResult struct {
+	ActionRights      []string `json:"action_rights"`
+	AllowSet          []string `json:"allow_set"`
+	Allow             bool     `json:"allow"`
+	PoliciesEvaluated int      `json:"policies_evaluated"`
+}
+
 type OpaResponse struct {
-	Result bool
+	DecisionId  string           `json:"decision_id"`
+	Result      HexaResult       `json:"result"`
+	Warning     *json.RawMessage `json:"warning"`
+	Explanation *json.RawMessage `json:"explanation"`
 }
 
 func (o OpaDecisionProvider) Allow(any interface{}) (bool, error) {
-	marshal, _ := json.Marshal(any.(*opaTools.OpaInfo))
-	request, _ := http.NewRequest("POST", o.Url, bytes.NewBuffer(marshal))
+	info := any.(*opaTools.OpaInfo)
+	input := OpaRestQuery{Input: *info}
+	marshal, _ := json.Marshal(input)
+	debugParams := ""
+	debugMode := os.Getenv(EnvOpaDebug)
+	if debugMode != "" {
+		debugParams = fmt.Sprintf("?pretty=true&explain=%s", debugMode)
+	}
+	request, _ := http.NewRequest("POST", o.Url+debugParams, bytes.NewBuffer(marshal))
 	request.Header.Set("Content-Type", "application/json; charset=UTF-8")
 	response, err := o.Client.Do(request)
 	if err != nil {
+		return false, err
+	}
+	if response.StatusCode >= 400 {
+		err = errors.New(fmt.Sprintf("Received error querying OPA: %s", response.Status))
 		return false, err
 	}
 	defer func(Body io.ReadCloser) {
 		_ = Body.Close()
 	}(response.Body)
 
-	var jsonResponse rego.ResultSet
-	err = json.NewDecoder(response.Body).Decode(&jsonResponse)
+	b, err := io.ReadAll(response.Body)
+	if err != nil {
+		log.Fatalln(err)
+	}
+
+	if debugParams != "" {
+		log.Println("Decision output:")
+		log.Println(string(b))
+	}
+
+	var jsonResponse OpaResponse
+	// err = json.NewDecoder(b).Decode(&jsonResponse)
+	err = json.Unmarshal(b, &jsonResponse)
 	if err != nil {
 		return false, err
 	}
-	allow := processResults(jsonResponse)
-	return allow, nil
-}
-
-func processResults(results rego.ResultSet) bool {
-	if results == nil {
-		return false
+	if jsonResponse.Warning != nil {
+		log.Println(fmt.Sprintf("Rego warning received:\n%s", jsonResponse.Warning))
 	}
-
-	allowed := false
-	result := results[0].Expressions[0]
-	for k := range result.Value.(map[string]interface{}) {
-
-		if k == "allow" {
-			allowed = true
-		}
-	}
-
-	return allowed
+	log.Println(fmt.Sprintf("Decision: %s, Allow: %t", jsonResponse.DecisionId, jsonResponse.Result.Allow))
+	// allow := processResults(jsonResponse)
+	return jsonResponse.Result.Allow, nil
 }

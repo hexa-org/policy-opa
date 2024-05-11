@@ -1,7 +1,6 @@
 package decisionsupport
 
 import (
-	"log"
 	"net/http"
 	"strings"
 )
@@ -40,14 +39,14 @@ func (d *DecisionSupport) Middleware(next http.Handler) http.Handler {
 			actionUris = append(actionUris, action)
 		}
 
-		log.Println("Building decision request info.")
+		// log.Println("Building decision request info.")
 		input, inputErr := d.Provider.BuildInput(r, actionUris, resourceIds)
 		if inputErr != nil {
 			d.Unauthorized(w, r)
 			return
 		}
 
-		log.Println("Checking authorization.")
+		// log.Println("Checking authorization.")
 		allow, err := d.Provider.Allow(input)
 		if !allow || err != nil {
 			d.Unauthorized(w, r)
