@@ -38,7 +38,7 @@ type OpaRestQuery struct {
 	Input opaTools.OpaInfo `json:"input"`
 }
 
-type HexaResult struct {
+type HexaOpaResult struct {
 	ActionRights      []string `json:"action_rights"`
 	AllowSet          []string `json:"allow_set"`
 	Allow             bool     `json:"allow"`
@@ -47,12 +47,12 @@ type HexaResult struct {
 
 type OpaResponse struct {
 	DecisionId  string           `json:"decision_id"`
-	Result      HexaResult       `json:"result"`
+	Result      HexaOpaResult    `json:"result"`
 	Warning     *json.RawMessage `json:"warning"`
 	Explanation *json.RawMessage `json:"explanation"`
 }
 
-func (o OpaDecisionProvider) Allow(any interface{}) (bool, error) {
+func (o OpaDecisionProvider) AllowQuery(any interface{}) (*HexaOpaResult, error) {
 	info := any.(*opaTools.OpaInfo)
 	input := OpaRestQuery{Input: *info}
 	marshal, _ := json.Marshal(input)
@@ -65,11 +65,11 @@ func (o OpaDecisionProvider) Allow(any interface{}) (bool, error) {
 	request.Header.Set("Content-Type", "application/json; charset=UTF-8")
 	response, err := o.Client.Do(request)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	if response.StatusCode >= 400 {
 		err = errors.New(fmt.Sprintf("Received error querying OPA: %s", response.Status))
-		return false, err
+		return nil, err
 	}
 	defer func(Body io.ReadCloser) {
 		_ = Body.Close()
@@ -89,12 +89,20 @@ func (o OpaDecisionProvider) Allow(any interface{}) (bool, error) {
 	// err = json.NewDecoder(b).Decode(&jsonResponse)
 	err = json.Unmarshal(b, &jsonResponse)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 	if jsonResponse.Warning != nil {
-		log.Println(fmt.Sprintf("Rego warning received:\n%s", jsonResponse.Warning))
+		log.Println(fmt.Sprintf("Rego warning:\n%s", jsonResponse.Warning))
 	}
 	log.Println(fmt.Sprintf("Decision: %s, Allow: %t", jsonResponse.DecisionId, jsonResponse.Result.Allow))
 	// allow := processResults(jsonResponse)
-	return jsonResponse.Result.Allow, nil
+	return &jsonResponse.Result, nil
+}
+
+func (o OpaDecisionProvider) Allow(any interface{}) (bool, error) {
+	resp, err := o.AllowQuery(any)
+	if err != nil {
+		return false, err
+	}
+	return resp.Allow, nil
 }

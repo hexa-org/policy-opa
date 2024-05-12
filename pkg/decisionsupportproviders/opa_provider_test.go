@@ -57,7 +57,7 @@ func TestOpaDecisionProvider_Allow(t *testing.T) {
 
 	results := decisionsupportproviders.OpaResponse{
 		DecisionId: "1234",
-		Result: decisionsupportproviders.HexaResult{
+		Result: decisionsupportproviders.HexaOpaResult{
 			Allow: true,
 		},
 		Warning:     nil,
