@@ -30,11 +30,11 @@ Prerequisites:
 * [Git client](https://github.com/git-guides/install-git#)
 * Hexa CLI Tool
 
-To install the Hexa CLI tool you can clone the [Hexa-Mapper Project](https://github.com/hexa-org/policy-mapper), or run the following:
-
+With the above pre-requisites installed, clone the repository, change directory into the project and run the build.sh shell script. This will build a local docker image called hexaopa
 ```shell
-$ go install github.com/hexa-org/policy-mapper/cmd/hexa@latest
-$ hexa help add opa
+$ git clone https://hexa-org/policy-mapper
+$ cd policy-mapper
+$ sh ./build.sh
 ```
 
 The Hexa command line interpreter tool allows you to retrieve and update IDQL OPA bundles to various types of servers including:
@@ -43,13 +43,13 @@ The Hexa command line interpreter tool allows you to retrieve and update IDQL OP
 * Amazon S3 Service
 * Google Storage Service
 
-With the above pre-requisites installed, clone the repository, change directory into the project and run the build.sh shell script. This will build a local docker image called hexaopa
-```shell
-$ git clone https://hexa-org/policy-mapper
-$ cd policy-mapper
-$ sh ./build.sh
-```
+To install the Hexa CLI tool you can clone the [Hexa-Mapper Project](https://github.com/hexa-org/policy-mapper), or run the following:
 
+```shell
+$ sh ./build.sh -c
+```
+> [!Note]
+> The build.sh `-c` option checks to see if the `hexa` command is installed and if needed, installs the latest version from GitHub.
 
 Once the image is built, use [docker-compose.yml](docker-compose.yml) to start the hexaBundleServer and hexaOpa servers.
 ```shell
