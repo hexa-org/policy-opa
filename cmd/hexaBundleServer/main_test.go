@@ -15,6 +15,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hexa-org/policy-opa/pkg/bundleTestSupport"
 	"github.com/hexa-org/policy-opa/pkg/compressionsupport"
 	"github.com/hexa-org/policy-opa/pkg/healthsupport"
 	"github.com/hexa-org/policy-opa/pkg/keysupport"
@@ -29,19 +30,19 @@ func TestNewApp(t *testing.T) {
 	_, file, _, _ := runtime.Caller(0)
 
 	t.Setenv(keysupport.EnvCertDirectory, filepath.Join(file, "../test/"))
-	newApp("localhost:0", DEF_TEST_BUNDLE_PATH)
+	newApp("localhost:0")
 }
 
 func setup(jwtMode bool) *http.Server {
 	listener, _ := net.Listen("tcp", "localhost:0")
-	_, file, _, _ := runtime.Caller(0)
-	bundleDir := filepath.Join(file, DEF_TEST_BUNDLE_PATH)
+
+	bundleDir := os.Getenv(EnvBundleDir)
 	if jwtMode {
 		_ = os.Setenv(tokensupport.EnvTknEnforceMode, tokensupport.ModeEnforceAll)
-
 	} else {
 		_ = os.Setenv(tokensupport.EnvTknEnforceMode, tokensupport.ModeEnforceAnonymous)
 	}
+
 	app := App(listener.Addr().String(), bundleDir)
 	go func() {
 		websupport.Start(app, listener)
@@ -146,7 +147,7 @@ func TestNewAppWithTransportLayerSecurity(t *testing.T) {
 	t.Setenv("SERVER_CERT", filepath.Join(file, "../test/server-cert.pem"))
 	t.Setenv("SERVER_KEY", filepath.Join(file, "../test/server-key.pem"))
 	t.Setenv(keysupport.EnvCertDirectory, filepath.Join(file, "../test/"))
-	app, listener := newApp("localhost:0", DEF_TEST_BUNDLE_PATH)
+	app, listener := newApp("localhost:0")
 
 	go func() {
 		websupport.Start(app, listener)
@@ -181,7 +182,7 @@ func TestNewAppWithTLS_PanicsWithBadServerCertPath(t *testing.T) {
 	t.Setenv("SERVER_CERT", "/do-not-exist")
 	t.Setenv("SERVER_KEY", filepath.Join(file, "../test/server-key.pem"))
 
-	assert.Panics(t, func() { newApp("localhost:0", DEF_TEST_BUNDLE_PATH) })
+	assert.Panics(t, func() { newApp("localhost:0") })
 }
 
 func TestNewAppWithTLS_PanicsWithBadServerKeyPath(t *testing.T) {
@@ -189,7 +190,7 @@ func TestNewAppWithTLS_PanicsWithBadServerKeyPath(t *testing.T) {
 	t.Setenv("SERVER_CERT", filepath.Join(file, "../test/server-cert.pem"))
 	t.Setenv("SERVER_KEY", "/do-not-exist")
 
-	assert.Panics(t, func() { newApp("localhost:0", DEF_TEST_BUNDLE_PATH) })
+	assert.Panics(t, func() { newApp("localhost:0") })
 }
 
 func TestNewAppWithTLS_PanicsWithBadPair(t *testing.T) {
@@ -211,7 +212,7 @@ func TestNewAppWithTLS_PanicsWithBadPair(t *testing.T) {
 	t.Setenv("SERVER_CERT", certFile)
 	t.Setenv("SERVER_KEY", keyFile)
 
-	assert.Panics(t, func() { newApp("localhost:0", DEF_TEST_BUNDLE_PATH) })
+	assert.Panics(t, func() { newApp("localhost:0") })
 }
 
 func must(file []byte, err error) []byte {
@@ -219,4 +220,25 @@ func must(file []byte, err error) []byte {
 		panic(fmt.Sprintf("unable to read file: %s", err))
 	}
 	return file
+}
+
+// TestZZ_EmptyBundleDir simulates what happens with HexaBundleServer starts in docker (with an empty bundles directory)
+func TestZZ_EmptyBundleDir(t *testing.T) {
+	bundleDir := bundleTestSupport.InitTestEmptyBundleDir(t)
+	defer bundleTestSupport.Cleanup(bundleDir)
+	saveDir := os.Getenv(EnvBundleDir)
+	_ = os.Setenv(EnvBundleDir, bundleDir)
+
+	app := setup(false)
+
+	response, _ := http.Get(fmt.Sprintf("http://%s/health", app.Addr))
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+
+	dataFilePath := filepath.Join(bundleDir, "bundle", "data.json")
+	dataBytes, err := os.ReadFile(dataFilePath)
+	assert.NoError(t, err, "Data file should exist!")
+	assert.Equal(t, hexaPolicyBytes, dataBytes, "Check the file created was the default policy")
+	websupport.Stop(app)
+
+	_ = os.Setenv(EnvBundleDir, saveDir)
 }

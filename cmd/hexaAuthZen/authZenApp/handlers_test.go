@@ -20,7 +20,9 @@ import (
 )
 
 func TestGetBundle(t *testing.T) {
-	testBundle := bundleTestSupport.GetTestBundlePath("./test/bundles")
+	testBundle := bundleTestSupport.InitTestBundlesDir(nil)
+	defer bundleTestSupport.Cleanup(testBundle)
+
 	az := AuthZenApp{bundleDir: testBundle}
 
 	rr := httptest.NewRecorder()
@@ -39,7 +41,7 @@ func TestGetBundle(t *testing.T) {
 
 	err = compressionsupport.UnTarToPath(bytes.NewReader(gzip), tempDir)
 
-	_, err = os.Stat(filepath.Join(tempDir, "bundle", "hexaPolicyV2.rego"))
+	_, err = os.Stat(filepath.Join(tempDir, "bundle", "hexaPolicy.rego"))
 	assert.NoError(t, err, "Rego should be there")
 
 	_, err = os.Stat(filepath.Join(tempDir, "bundle", "data.json"))
@@ -47,14 +49,15 @@ func TestGetBundle(t *testing.T) {
 }
 
 func TestUploadBundle(t *testing.T) {
-	bundleDir := bundleTestSupport.InitTestBundlesDir(t)
+	bundleDir := bundleTestSupport.InitTestBundlesDir(nil)
 	defer bundleTestSupport.Cleanup(bundleDir)
 
 	_ = os.Setenv(config.EnvBundleDir, bundleDir)
 	az := AuthZenApp{bundleDir: bundleDir}
 	az.Decision = decisionHandler.NewDecisionHandler()
 
-	req, err := bundleTestSupport.PrepareBundleUploadRequest(bundleTestSupport.GetTestBundlePath("./test/testBundle"))
+	bundleDir2 := bundleTestSupport.InitTestBundlesDir(nil)
+	req, err := bundleTestSupport.PrepareBundleUploadRequest(bundleTestSupport.GetTestBundlePath(bundleDir2))
 	assert.NoError(t, err, "No error creating request")
 	rr := httptest.NewRecorder()
 
@@ -64,7 +67,7 @@ func TestUploadBundle(t *testing.T) {
 }
 
 func TestUploadBadBundle(t *testing.T) {
-	bundleDir := bundleTestSupport.InitTestBundlesDir(t)
+	bundleDir := bundleTestSupport.InitTestBundlesDir(nil)
 	defer bundleTestSupport.Cleanup(bundleDir)
 
 	_ = os.Setenv(config.EnvBundleDir, bundleDir)
@@ -91,7 +94,7 @@ func TestUploadBadBundle(t *testing.T) {
 }
 
 func TestHandleEvaluation(t *testing.T) {
-	bundleDir := bundleTestSupport.InitTestBundlesDir(t)
+	bundleDir := bundleTestSupport.InitTestBundlesDir(nil)
 	defer bundleTestSupport.Cleanup(bundleDir)
 
 	_ = os.Setenv(config.EnvBundleDir, bundleDir)
@@ -123,7 +126,7 @@ func TestHandleEvaluation(t *testing.T) {
 }
 
 func TestHandleQueryEvaluation(t *testing.T) {
-	bundleDir := bundleTestSupport.InitTestBundlesDir(t)
+	bundleDir := bundleTestSupport.InitTestBundlesDir(nil)
 	defer bundleTestSupport.Cleanup(bundleDir)
 
 	_ = os.Setenv(config.EnvBundleDir, bundleDir)
@@ -151,7 +154,7 @@ func TestHandleQueryEvaluation(t *testing.T) {
 }
 
 func TestHandleSecurity(t *testing.T) {
-	bundleDir := bundleTestSupport.InitTestBundlesDir(t)
+	bundleDir := bundleTestSupport.InitTestBundlesDir(nil)
 	defer bundleTestSupport.Cleanup(bundleDir)
 
 	_ = os.Setenv(tokensupport.EnvTknPrivateKeyFile, filepath.Join(bundleDir, "certs", tokensupport.DefTknPrivateKeyFile))

@@ -39,11 +39,12 @@ type testSuite struct {
 func TestAuthZenApp(t *testing.T) {
 
 	s := testSuite{}
-	s.bundleDir = bundleTestSupport.InitTestBundlesDir(t)
-	defer bundleTestSupport.Cleanup(s.bundleDir)
+	s.bundleDir = bundleTestSupport.InitTestBundlesDir(nil)
 
 	suite.Run(t, &s)
 
+	bundleTestSupport.Cleanup(s.tokenDir)
+	bundleTestSupport.Cleanup(s.bundleDir)
 }
 
 func (s *testSuite) setUpTokenSystem() {
@@ -89,7 +90,9 @@ func (s *testSuite) TearDownSuite() {
 	_ = os.Unsetenv(tokensupport.EnvTknKeyDirectory)
 	_ = os.Unsetenv(tokensupport.EnvTknPubKeyFile)
 	_ = os.Unsetenv(tokensupport.EnvTknPrivateKeyFile)
+
 	s.app.Shutdown()
+
 }
 
 func (s *testSuite) TestAuthorizationEndpoint() {
@@ -191,7 +194,7 @@ func (s *testSuite) TestGetBundle() {
 
 	err = compressionsupport.UnTarToPath(bytes.NewReader(gzip), tempDir)
 
-	_, err = os.Stat(filepath.Join(tempDir, "bundle", "hexaPolicyV2.rego"))
+	_, err = os.Stat(filepath.Join(tempDir, "bundle", "hexaPolicy.rego"))
 	assert.NoError(s.T(), err, "Rego should be there")
 
 	_, err = os.Stat(filepath.Join(tempDir, "bundle", "data.json"))

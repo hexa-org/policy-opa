@@ -3,8 +3,8 @@ package main
 import (
 	"bytes"
 	"crypto/tls"
+	_ "embed"
 	"fmt"
-
 	"io/fs"
 	"log"
 	"math/rand"
@@ -12,21 +12,26 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"runtime"
 	"sort"
 	"strings"
 	"time"
 
 	"github.com/gorilla/mux"
-	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/config"
+	"github.com/hexa-org/policy-mapper/providers/openpolicyagent"
+
 	"github.com/hexa-org/policy-opa/pkg/compressionsupport"
 	"github.com/hexa-org/policy-opa/pkg/keysupport"
 	"github.com/hexa-org/policy-opa/pkg/tokensupport"
 	"github.com/hexa-org/policy-opa/pkg/websupport"
 )
 
+//go:embed resources/hexaIndustries-data.json
+var hexaPolicyBytes []byte // hexaPolicyBytes holds the default policy which is used by the HexaIndustries demo
+
+var ServerLog = log.New(os.Stdout, "HEXA-BUNDLE: ", log.Ldate|log.Ltime)
+
 const EnvBundleDir = "BUNDLE_DIR"
-const DEF_TEST_BUNDLE_PATH string = "../resources/bundles"
+const DefBundlePath string = "/home/resources/bundles"
 const Header_Email string = "X-JWT-EMAIL"
 
 func App(addr string, bundleDir string) *http.Server {
@@ -50,9 +55,24 @@ func NewBundleApp(bundleDir string) BundleApp {
 		var err error
 		app.TokenValidator, err = tokensupport.TokenValidator(issuerName)
 		if err != nil {
-			config.ServerLog.Println(fmt.Sprintf("FATAL Loading Token Validator: %s", err.Error()))
+			ServerLog.Println(fmt.Sprintf("FATAL Loading Token Validator: %s", err.Error()))
 			panic(err)
 		}
+	}
+
+	_, err := os.Stat(filepath.Join(bundleDir, "bundle"))
+	if os.IsNotExist(err) {
+		ServerLog.Println("Bundle directory not found, initializing with default HexaIndustries policy bundle")
+
+		bundle, err := openpolicyagent.MakeHexaBundle(hexaPolicyBytes)
+		if err != nil {
+			ServerLog.Printf("Error creating default bundle: %s", err)
+			return app
+		}
+
+		gzip, _ := compressionsupport.UnGzip(bytes.NewReader(bundle.Bytes()))
+
+		_ = compressionsupport.UnTarToPath(bytes.NewReader(gzip), bundleDir)
 	}
 
 	return app
@@ -155,7 +175,7 @@ func (a *BundleApp) loadHandlers() func(router *mux.Router) {
 	}
 }
 
-func newApp(addr string, bundlePath string) (*http.Server, net.Listener) {
+func newApp(addr string) (*http.Server, net.Listener) {
 	if found := os.Getenv("PORT"); found != "" {
 		host, _, _ := net.SplitHostPort(addr)
 		addr = fmt.Sprintf("%v:%v", host, found)
@@ -172,16 +192,8 @@ func newApp(addr string, bundlePath string) (*http.Server, net.Listener) {
 
 	bundleDir := os.Getenv(EnvBundleDir)
 	if bundleDir == "" {
-		// If a relative path is used, then join with the current executable path...
-		fmt.Println("Environment variable BUNDLE_DIR not defined.")
-		if strings.Index(bundlePath, DEF_TEST_BUNDLE_PATH) == 0 {
-			fmt.Println("Configuring for testing mode...")
-			// This is mainly used for testing
-			_, file, _, _ := runtime.Caller(0)
-			bundleDir = filepath.Join(file, bundlePath)
-		} else {
-			bundleDir = bundlePath
-		}
+		ServerLog.Printf("Environment variable BUNDLE_DIR not defined, using: %s", DefBundlePath)
+		bundleDir = DefBundlePath
 	}
 
 	app := App(listener.Addr().String(), bundleDir)
@@ -228,6 +240,6 @@ func newApp(addr string, bundlePath string) (*http.Server, net.Listener) {
 
 func main() {
 
-	app, listener := newApp("0.0.0.0:8889", "")
+	app, listener := newApp("0.0.0.0:8889")
 	websupport.Start(app, listener)
 }

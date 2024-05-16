@@ -7,6 +7,7 @@ import (
 	"os"
 	"testing"
 
+	"github.com/hexa-org/policy-opa/pkg/bundleTestSupport"
 	"github.com/hexa-org/policy-opa/pkg/tokensupport"
 )
 
@@ -16,13 +17,16 @@ var adminToken string
 
 func TestMain(m *testing.M) {
 	log.SetOutput(io.Discard)
-	tokenDir, _ := os.MkdirTemp("", "hexaBundle-*")
-	defer os.RemoveAll(tokenDir)
+	tokenDir, _ := os.MkdirTemp("", "hexaToken-*")
+
+	data, err := os.ReadFile("./resources/data.json")
+	bundleDir := bundleTestSupport.InitTestBundlesDir(data)
+
 	_ = os.Setenv(tokensupport.EnvTknIssuer, "bundle")
 	_ = os.Setenv(tokensupport.EnvTknKeyDirectory, tokenDir)
 	_ = os.Unsetenv(tokensupport.EnvTknPubKeyFile)
 	_ = os.Unsetenv(tokensupport.EnvTknPrivateKeyFile)
-
+	_ = os.Setenv(EnvBundleDir, bundleDir)
 	handler, err := tokensupport.GenerateIssuerKeys("bundle", false)
 	if err != nil {
 		fmt.Println(err.Error())
@@ -34,9 +38,11 @@ func TestMain(m *testing.M) {
 	adminToken, err = handler.IssueToken([]string{tokensupport.ScopeAdmin}, "bundle@hexa.org")
 
 	// Don't use token enforcement by default.
-	os.Setenv(tokensupport.EnvTknEnforceMode, tokensupport.ModeEnforceAnonymous)
+	_ = os.Setenv(tokensupport.EnvTknEnforceMode, tokensupport.ModeEnforceAnonymous)
 
 	code := m.Run()
 
+	_ = os.RemoveAll(tokenDir)
+	_ = os.RemoveAll(bundleDir)
 	os.Exit(code)
 }

@@ -2,15 +2,14 @@ package opaHandler
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
-	"os"
-	"path/filepath"
-	"strings"
 
 	"github.com/hexa-org/policy-opa/api/infoModel"
 	"github.com/hexa-org/policy-opa/client/hexaOpaClient"
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/config"
+	"github.com/hexa-org/policy-opa/pkg/decisionsupportproviders"
 	"github.com/hexa-org/policy-opa/server/conditionEvaluator"
 	"github.com/hexa-org/policy-opa/server/hexaFilter"
 	"github.com/open-policy-agent/opa/ast"
@@ -41,7 +40,7 @@ func (h *RegoHandler) ReloadRego() error {
 		rego.EnablePrintStatements(true),
 		rego.Query("data.hexaPolicy"),
 		rego.Package("hexaPolicy"),
-		rego.LoadBundle(filepath.Join(h.bundleDir, "bundle")),
+		rego.LoadBundle(h.bundleDir),
 		// rego.Module("bundle/hexaPolicyV2.rego", regoString),
 		// rego.Store(store),
 		rego.Function2(
@@ -81,15 +80,13 @@ func (h *RegoHandler) ReloadRego() error {
 	return nil
 }
 
-func NewRegoHandler() *RegoHandler {
-	bundleDir := os.Getenv(config.EnvBundleDir)
+func NewRegoHandler(bundleDir string) *RegoHandler {
+
 	if bundleDir == "" {
 		// If a relative path is used, then join with the current executable path...
 		fmt.Println("Environment variable AUTHZEN_BUNDLE_DIR not defined, defaulting..")
 		bundleDir = config.DefBundlePath
 	}
-
-	// TODO: Check if bundleDir is empty. If so, create a default bundle
 
 	handler := &RegoHandler{
 		bundleDir: bundleDir,
@@ -102,6 +99,10 @@ func NewRegoHandler() *RegoHandler {
 	return handler
 }
 
+func (h *RegoHandler) CheckBundleDir() error {
+	return nil
+}
+
 func (h *RegoHandler) Evaluate(input infoModel.AzInfo) (rego.ResultSet, error) {
 	// inputBytes, _ := json.MarshalIndent(input, "", " ")
 	// fmt.Println(string(inputBytes))
@@ -111,37 +112,48 @@ func (h *RegoHandler) Evaluate(input infoModel.AzInfo) (rego.ResultSet, error) {
 	return h.query.Eval(context.Background(), rego.EvalInput(input))
 }
 
-func (h *RegoHandler) ProcessResults(results rego.ResultSet) (string, []string, []string) {
+func (h *RegoHandler) ProcessResults(results rego.ResultSet) *decisionsupportproviders.HexaOpaResult {
 	if results == nil {
-		return "", []string{}, []string{}
+		return nil
 	}
-	var rights string
-	var allowString string
-	allowed := "false"
-	result := results[0].Expressions[0]
-	for k, v := range result.Value.(map[string]interface{}) {
-		if k == "actionRights" {
-			rights = fmt.Sprintf("%v", v)
-		}
-		if k == "allowSet" {
-			allowString = fmt.Sprintf("%v", v)
-		}
-		if k == "allow" {
-			allowed = fmt.Sprintf("%v", v)
-		}
-	}
-	actionRights := strings.FieldsFunc(rights, func(r rune) bool {
-		return strings.ContainsRune("[ ]", r)
-	})
-	allowSet := strings.FieldsFunc(allowString, func(r rune) bool {
-		return strings.ContainsRune("[ ]", r)
-	})
+	resBytes, err := json.Marshal(results[0].Expressions[0].Value)
 
+	opaResult := decisionsupportproviders.HexaOpaResult{}
+	err = json.Unmarshal(resBytes, &opaResult)
+	if err != nil {
+		config.ServerLog.Print("error convertin result: " + err.Error())
+	}
 	/*
-		fmt.Println("allowed:     \t" + allowed)
-		fmt.Println("actionRights:\t" + rights)
-		fmt.Println("allowSet:    \t" + allowString)
+		for k, v := range result.Value.(map[string]interface{}) {
+			if k == "action_rights" {
+				actionRights := strings.FieldsFunc(fmt.Sprintf("%v", v), func(r rune) bool {
+					return strings.ContainsRune("[ ]", r)
+				})
+				opaResult.ActionRights = actionRights
+			}
+			if k == "allow_set" {
+				allowSet := strings.FieldsFunc(fmt.Sprintf("%v", v), func(r rune) bool {
+					return strings.ContainsRune("[ ]", r)
+				})
+				opaResult.AllowSet = allowSet
+			}
+			if k == "allow" {
+				opaResult.Allow = v.(bool)
+			}
+			if k == "hexa_rego_version" {
+
+				opaResult.HexaRegoVersion = v.(string)
+			}
+			if k == "policies_evaluated" {
+				value := 0
+				err := json.Unmarshal(v, &value)
+				if err != nil {
+					config.ServerLog.Print("error convertin result: " + err.Error())
+				}
+			}
+		}
+
 	*/
 
-	return allowed, allowSet, actionRights
+	return &opaResult
 }

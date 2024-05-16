@@ -14,7 +14,8 @@ import (
 )
 
 func TestHandleEvaluation(t *testing.T) {
-	bundleDir := bundleTestSupport.InitTestBundlesDir(t)
+	// This test should cause the decision handler to create a brand new AuthZen bundle
+	bundleDir := bundleTestSupport.InitTestEmptyBundleDir(t)
 	defer bundleTestSupport.Cleanup(bundleDir)
 
 	_ = os.Setenv(config.EnvBundleDir, bundleDir)
@@ -39,7 +40,7 @@ func TestHandleEvaluation(t *testing.T) {
 }
 
 func TestHandleQueryEvaluation(t *testing.T) {
-	bundleDir := bundleTestSupport.InitTestBundlesDir(t)
+	bundleDir := bundleTestSupport.InitTestBundlesDir(nil)
 	defer bundleTestSupport.Cleanup(bundleDir)
 
 	_ = os.Setenv(config.EnvBundleDir, bundleDir)
@@ -61,7 +62,7 @@ func TestHandleQueryEvaluation(t *testing.T) {
 }
 
 func TestHealthCheck(t *testing.T) {
-	bundleDir := bundleTestSupport.InitTestBundlesDir(t)
+	bundleDir := bundleTestSupport.InitTestBundlesDir(nil)
 	defer bundleTestSupport.Cleanup(bundleDir)
 
 	_ = os.Setenv(config.EnvBundleDir, bundleDir)
@@ -72,7 +73,7 @@ func TestHealthCheck(t *testing.T) {
 }
 
 func TestReload(t *testing.T) {
-	bundleDir := bundleTestSupport.InitTestBundlesDir(t)
+	bundleDir := bundleTestSupport.InitTestBundlesDir(nil)
 	defer bundleTestSupport.Cleanup(bundleDir)
 
 	_ = os.Setenv(config.EnvBundleDir, bundleDir)

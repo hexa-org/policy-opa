@@ -43,6 +43,7 @@ type HexaOpaResult struct {
 	AllowSet          []string `json:"allow_set"`
 	Allow             bool     `json:"allow"`
 	PoliciesEvaluated int      `json:"policies_evaluated"`
+	HexaRegoVersion   string   `json:"hexa_rego_version"`
 }
 
 type OpaResponse struct {
