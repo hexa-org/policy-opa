@@ -1,4 +1,4 @@
-echo "This builds a docker image for local execution"
+echo "Building Hexa OPA docker image for local execution"
 
 tag="hexaopa"
 test="N"

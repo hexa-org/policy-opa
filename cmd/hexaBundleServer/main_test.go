@@ -238,6 +238,17 @@ func TestZZ_EmptyBundleDir(t *testing.T) {
 	dataBytes, err := os.ReadFile(dataFilePath)
 	assert.NoError(t, err, "Data file should exist!")
 	assert.Equal(t, hexaPolicyBytes, dataBytes, "Check the file created was the default policy")
+
+	manifestPath := filepath.Join(bundleDir, "bundle", ".manifest")
+	manifestBytes, err := os.ReadFile(manifestPath)
+	assert.NoError(t, err, "Manifest file should exist!")
+	assert.Greater(t, len(manifestBytes), 10, "Manifest should have a few bytes")
+
+	regoPath := filepath.Join(bundleDir, "bundle", "hexaPolicy.rego")
+	regoBytes, err := os.ReadFile(regoPath)
+	assert.NoError(t, err, "Manifest file should exist!")
+	assert.Greater(t, len(regoBytes), 100, "Rego should have > 100 bytes")
+
 	websupport.Stop(app)
 
 	_ = os.Setenv(EnvBundleDir, saveDir)
