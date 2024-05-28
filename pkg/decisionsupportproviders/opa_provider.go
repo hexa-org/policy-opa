@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/hexa-org/policy-mapper/pkg/hexapolicy"
 	opaTools "github.com/hexa-org/policy-opa/client/hexaOpaClient"
 )
 
@@ -38,12 +39,18 @@ type OpaRestQuery struct {
 	Input opaTools.OpaInfo `json:"input"`
 }
 
+type ScopeObligation struct {
+	PolicyID string               `json:"policyId"`
+	Scope    hexapolicy.ScopeInfo `json:"scope"`
+}
+
 type HexaOpaResult struct {
-	ActionRights      []string `json:"action_rights"`
-	AllowSet          []string `json:"allow_set"`
-	Allow             bool     `json:"allow"`
-	PoliciesEvaluated int      `json:"policies_evaluated"`
-	HexaRegoVersion   string   `json:"hexa_rego_version"`
+	ActionRights      []string          `json:"action_rights"`
+	AllowSet          []string          `json:"allow_set"`
+	Allow             bool              `json:"allow"`
+	PoliciesEvaluated int               `json:"policies_evaluated"`
+	HexaRegoVersion   string            `json:"hexa_rego_version"`
+	Scopes            []ScopeObligation `json:"scopes"`
 }
 
 type OpaResponse struct {

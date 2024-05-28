@@ -1,3 +1,8 @@
+/*
+Package opaHandler is used by the hexaAuthZen server package to enable running rego based decisions in an all-in-one
+demonstration deployment. When an AuthZen decision request is received, the request is parsed and transformed into an OPA
+decision request which this handler processes.
+*/
 package opaHandler
 
 import (
