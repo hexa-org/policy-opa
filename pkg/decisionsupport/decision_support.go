@@ -1,8 +1,11 @@
 package decisionsupport
 
 import (
+	"fmt"
 	"net/http"
 	"strings"
+
+	log "golang.org/x/exp/slog"
 )
 
 type DecisionSupport struct {
@@ -42,6 +45,7 @@ func (d *DecisionSupport) Middleware(next http.Handler) http.Handler {
 		// log.Println("Building decision request info.")
 		input, inputErr := d.Provider.BuildInput(r, actionUris, resourceIds)
 		if inputErr != nil {
+			log.Error(fmt.Sprintf("Error building OPA input: %s", inputErr.Error()))
 			d.Unauthorized(w, r)
 			return
 		}

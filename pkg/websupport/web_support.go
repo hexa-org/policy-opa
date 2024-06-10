@@ -3,10 +3,13 @@ package websupport
 import (
 	"context"
 	"crypto/tls"
-	"log"
+	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"os"
+
+	log "golang.org/x/exp/slog"
 
 	"github.com/gorilla/mux"
 	"github.com/hexa-org/policy-opa/pkg/healthsupport"
@@ -54,31 +57,35 @@ func Create(addr string, handlers func(x *mux.Router), options Options) *http.Se
 		Handler: router,
 	}
 	for _, p := range Paths(router) {
-		log.Println("Registered route", p.Methods, p.URI)
+		log.Info("Registered route", "methods", p.Methods, "path", p.URI)
 	}
 	return &server
 }
 
 func Start(server *http.Server, l net.Listener) {
 	if server.TLSConfig != nil {
-		log.Println("Starting the server with tls support", server.Addr)
+		log.Info("Starting with TLS", "address", server.Addr)
 		err := server.ServeTLS(l, "", "")
-		if err != nil {
-			log.Println("error starting the server:", err.Error())
+		if !errors.Is(err, http.ErrServerClosed) {
+			log.Error(fmt.Sprintf("error starting the server: %s", err.Error()))
 			return
 		}
+		return
 	}
 
-	log.Println("Starting the server", server.Addr)
+	log.Info("Starting the server", "address", server.Addr)
+	log.Warn("TLS server mode not configured")
 	err := server.Serve(l)
 	if err != nil {
-		log.Println("error starting the server:", err.Error())
+		if !errors.Is(err, http.ErrServerClosed) {
+			log.Error(fmt.Sprintf("error starting the server: %s", err.Error()))
+		}
 		return
 	}
 }
 
 func Stop(server *http.Server) {
-	log.Printf("Stopping the server.")
+	log.Info("Stopping the server.")
 	_ = server.Shutdown(context.Background())
 }
 
