@@ -6,9 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"log"
 	"net/http"
 	"os"
+
+	log "golang.org/x/exp/slog"
 
 	"github.com/hexa-org/policy-mapper/pkg/hexapolicy"
 	opaTools "github.com/hexa-org/policy-opa/client/hexaOpaClient"
@@ -73,6 +74,7 @@ func (o OpaDecisionProvider) AllowQuery(any interface{}) (*HexaOpaResult, error)
 	request.Header.Set("Content-Type", "application/json; charset=UTF-8")
 	response, err := o.Client.Do(request)
 	if err != nil {
+		log.Error(fmt.Sprintf("Error communicating with OPA Server: %s", err.Error()))
 		return nil, err
 	}
 	if response.StatusCode >= 400 {
@@ -85,12 +87,12 @@ func (o OpaDecisionProvider) AllowQuery(any interface{}) (*HexaOpaResult, error)
 
 	b, err := io.ReadAll(response.Body)
 	if err != nil {
-		log.Fatalln(err)
+		log.Error(err.Error())
 	}
 
 	if debugParams != "" {
-		log.Println("Decision output:")
-		log.Println(string(b))
+		log.Info("Decision output:")
+		log.Info(string(b))
 	}
 
 	var jsonResponse OpaResponse
@@ -100,9 +102,9 @@ func (o OpaDecisionProvider) AllowQuery(any interface{}) (*HexaOpaResult, error)
 		return nil, err
 	}
 	if jsonResponse.Warning != nil {
-		log.Println(fmt.Sprintf("Rego warning:\n%s", jsonResponse.Warning))
+		log.Info(fmt.Sprintf("Rego warning:\n%s", jsonResponse.Warning))
 	}
-	log.Println(fmt.Sprintf("Decision: %s, Allow: %t", jsonResponse.DecisionId, jsonResponse.Result.Allow))
+	log.Info(fmt.Sprintf("Decision: %s, Allow: %t", jsonResponse.DecisionId, jsonResponse.Result.Allow))
 	// allow := processResults(jsonResponse)
 	return &jsonResponse.Result, nil
 }

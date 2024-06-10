@@ -4,19 +4,19 @@ services:
   # hexa-opaBundle-server is an HTTP Bundle endpoint that can be used by Hexa-Orchestrator or Hexa CLI to configure policy to be delivered to OPA Servers.
   hexa-opaBundle-server:
     image: hexaopa
-    container_name: hexa-opaBundle-server
+    container_name: hexa-bundle-server
     ports:
       - "8889:8889"
     command: /app/hexaBundleServer
     environment:
       PORT: 8889
-      TKN_DIRECTORY: "/home/certs"
+      HEXA_TKN_DIRECTORY: "/home/certs"
       HEXA_CERT_DIRECTORY: "/home/certs"
-      SERVER_CERT: "/home/certs/server-cert.pem"
-      SERVER_KEY: "/home/certs/server-key.pem"
+      HEXA_SERVER_CERT: "/home/certs/hexa-bundle-server-cert.pem"
+      HEXA_SERVER_KEY_PATH: "/home/certs/hexa-bundle-server-key.pem"
+      HEXA_SERVER_DNS_NAME: hexa-bundle-server
       BUNDLE_DIR: "/home/resources/bundles"
-      SERVER_DNS_NAME: "hexa-opaBundle-server"
-      TKN_MODE: "ANON"
+      HEXA_TKN_MODE: "ANON"
     volumes:
       - "./deployments/hexaBundleServer/resources:/home/resources"
       - "./.certs:/home/certs"
@@ -24,20 +24,24 @@ services:
   # hexa-opa-sidecar is an OPA Server instance extended to support IDQL Filter expressions (run time evaluation)
   hexa-opa-sidecar:
     image: hexaopa
-    container_name: hexa-opa-server
+    container_name: hexa-opa-sidecar
     ports:
       - "8887:8887"
     depends_on:
       - hexa-opaBundle-server
-    command: /app/hexaOpa run --server --addr :8887 --log-level debug -c /home/config/config.yaml
+    command: /app/hexaOpa run --server --addr :8887 --tls-cert-file=/home/certs/hexaOpa-cert.pem --tls-private-key-file=/home/certs/hexaOpa-key.pem --log-level debug -c /home/config/config.yaml
     environment:
       # These environment values are referenced in ./deployments/hexaOpaServer/config/config.yaml
-      HEXA_CONFIG_URL: "https://hexa-opaBundle-server:8889"
+      HEXA_CONFIG_URL: "https://hexa-bundle-server:8889"
       HEXA_CA_CERT: "/home/certs/ca-cert.pem"
+      HEXA_CERT_DIRECTORY: "/home/certs"
+      HEXA_SERVER_CERT: "/home/certs/hexaOpa-cert.pem"
+      HEXA_SERVER_KEY_PATH: "/home/certs/hexaOpa-key.pem"
+      HEXA_SERVER_DNS_NAME: "hexa-opa-sidecar"
     volumes:
       - "./deployments/hexaOpaServer/config:/home/config:ro"
       - "./deployments/hexaOpaServer/.opa:/app/.opa"
-      - "./.certs:/home/certs:ro"
+      - "./.certs:/home/certs"
 
   # hexa-authzen is a prototype/demonstration PDP intended to implement the OpenID AuthZen Interop Scenario
   hexa-authzen:
@@ -51,7 +55,7 @@ services:
       AUTHZEN_BUNDLE_DIR: "/home/authZen/bundles"
       AUTHZEN_USERPIP_FILE: "/home/authZen/users.json"
       AUTHZEN_TOKEN_DIRECTORY: "/home/certs"
-      TKN_MODE: "BUNDLE"
+      HEXA_TKN_MODE: "BUNDLE"
     volumes:
       - "./deployments/authZen:/home/authZen"
       - "./.certs:/home/certs:ro"
@@ -59,7 +63,7 @@ services:
   # demo-app is a demonstration web site that uses the hexa-opa-sidecar to authenticate requests
   demo-app:
     image: hexaopa
-    container_name: hexa-demo
+    container_name: hexa-industries-demo
     ports:
       - "8886:8886"
     command: /app/hexaIndustriesDemo
@@ -67,4 +71,9 @@ services:
       - hexa-opa-sidecar
     environment:
       PORT: 8886
-      OPA_SERVER_URL: http://hexa-opa-server:8887/v1/data/hexaPolicy
+      OPA_SERVER_URL: https://hexa-opa-sidecar:8887/v1/data/hexaPolicy
+      # HEXAOPA_DETAIL enables debug responses in console  notes&pretty or full&pretty
+      HEXAOPA_DETAIL: "notes&pretty"
+      HEXA_CA_CERT: "/home/certs/ca-cert.pem"
+    volumes:
+      - "./.certs:/home/certs:ro"

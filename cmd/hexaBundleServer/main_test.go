@@ -144,8 +144,8 @@ func TestResetAuth(t *testing.T) {
 
 func TestNewAppWithTransportLayerSecurity(t *testing.T) {
 	_, file, _, _ := runtime.Caller(0)
-	t.Setenv("SERVER_CERT", filepath.Join(file, "../test/server-cert.pem"))
-	t.Setenv("SERVER_KEY", filepath.Join(file, "../test/server-key.pem"))
+	t.Setenv(keysupport.EnvServerCert, filepath.Join(file, "../test/server-cert.pem"))
+	t.Setenv(keysupport.EnvServerKey, filepath.Join(file, "../test/server-key.pem"))
 	t.Setenv(keysupport.EnvCertDirectory, filepath.Join(file, "../test/"))
 	app, listener := newApp("localhost:0")
 
@@ -179,16 +179,16 @@ func TestNewAppWithTransportLayerSecurity(t *testing.T) {
 
 func TestNewAppWithTLS_PanicsWithBadServerCertPath(t *testing.T) {
 	_, file, _, _ := runtime.Caller(0)
-	t.Setenv("SERVER_CERT", "/do-not-exist")
-	t.Setenv("SERVER_KEY", filepath.Join(file, "../test/server-key.pem"))
+	t.Setenv("HEXA_SERVER_CERT", "/do-not-exist")
+	t.Setenv("HEXA_SERVER_KEY_PATH", filepath.Join(file, "../test/server-key.pem"))
 
 	assert.Panics(t, func() { newApp("localhost:0") })
 }
 
 func TestNewAppWithTLS_PanicsWithBadServerKeyPath(t *testing.T) {
 	_, file, _, _ := runtime.Caller(0)
-	t.Setenv("SERVER_CERT", filepath.Join(file, "../test/server-cert.pem"))
-	t.Setenv("SERVER_KEY", "/do-not-exist")
+	t.Setenv("HEXA_SERVER_CERT", filepath.Join(file, "../test/server-cert.pem"))
+	t.Setenv("HEXA_SERVER_KEY_PATH", "/do-not-exist")
 
 	assert.Panics(t, func() { newApp("localhost:0") })
 }
@@ -209,8 +209,8 @@ func TestNewAppWithTLS_PanicsWithBadPair(t *testing.T) {
 		0644,
 	))
 
-	t.Setenv("SERVER_CERT", certFile)
-	t.Setenv("SERVER_KEY", keyFile)
+	t.Setenv("HEXA_SERVER_CERT", certFile)
+	t.Setenv("HEXA_SERVER_KEY_PATH", keyFile)
 
 	assert.Panics(t, func() { newApp("localhost:0") })
 }
