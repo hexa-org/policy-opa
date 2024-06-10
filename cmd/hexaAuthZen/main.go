@@ -15,6 +15,7 @@ var mLog = config.ServerLog
 
 func main() {
 	mLog.Printf("Hexa AuthZen Server starting...")
+	mLog.Println("Note: This AuthZen demo server does not support TLS and should be deployed behind a TLS proxy terminator (e.g. Google App Engine).")
 	mLog.Printf(fmt.Sprintf("Version: %s", config.HexaAuthZenVersion))
 	port := "8080"
 	if found := os.Getenv("PORT"); found != "" {
