@@ -3,12 +3,14 @@ package main
 import (
 	"embed"
 	"fmt"
-	"log"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
 	"runtime"
+
+	"github.com/hexa-org/policy-opa/pkg/keysupport"
+	log "golang.org/x/exp/slog"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
@@ -61,22 +63,27 @@ func NewBasicApp(session *sessions.CookieStore, amazonConfig amazonsupport.Amazo
 }
 
 func (a *BasicApp) dashboard(writer http.ResponseWriter, req *http.Request) {
+	log.Info("dashboard requested", "addr", req.RemoteAddr)
 	_ = websupport.ModelAndView(writer, &resources, "dashboard", a.principalAndLogout(req))
 }
 
 func (a *BasicApp) accounting(writer http.ResponseWriter, req *http.Request) {
+	log.Info("accounting requested", "addr", req.RemoteAddr)
 	_ = websupport.ModelAndView(writer, &resources, "accounting", a.principalAndLogout(req))
 }
 
 func (a *BasicApp) sales(writer http.ResponseWriter, req *http.Request) {
+	log.Info("sales requested", "addr", req.RemoteAddr)
 	_ = websupport.ModelAndView(writer, &resources, "sales", a.principalAndLogout(req))
 }
 
 func (a *BasicApp) humanresources(writer http.ResponseWriter, req *http.Request) {
+	log.Info("humanresources requested", "addr", req.RemoteAddr)
 	_ = websupport.ModelAndView(writer, &resources, "humanresources", a.principalAndLogout(req))
 }
 
 func (a *BasicApp) unauthorized(writer http.ResponseWriter, req *http.Request) {
+	log.Info("unauthorized requested", "addr", req.RemoteAddr)
 	_ = websupport.ModelAndView(writer, &resources, "unauthorized", a.principalAndLogout(req))
 }
 
@@ -115,29 +122,30 @@ func (a *BasicApp) principalAndLogout(req *http.Request) websupport.Model {
 }
 
 func newApp(addr string) (*http.Server, net.Listener) {
+
 	if found := os.Getenv("PORT"); found != "" {
 		host, _, _ := net.SplitHostPort(addr)
 		addr = fmt.Sprintf("%v:%v", host, found)
 	}
-	log.Printf("Found server port %v", addr)
+	log.Debug(fmt.Sprintf("Found server port %v", addr))
 
 	if found := os.Getenv("HOST"); found != "" {
 		_, port, _ := net.SplitHostPort(addr)
 		addr = fmt.Sprintf("%v:%v", found, port)
 	}
-	log.Printf("Found server host %v", addr)
+	log.Debug(fmt.Sprintf("Found server host %v", addr))
 
-	opaUrl := "http://0.0.0.0:8887/v1/data/hexaPolicy"
+	opaUrl := "https://0.0.0.0:8887/v1/data/hexaPolicy"
 	if found := os.Getenv("OPA_SERVER_URL"); found != "" {
 		opaUrl = found
 	}
-	log.Printf("Found open policy agent server address %v", opaUrl)
+	log.Info(fmt.Sprintf("Using OPA PDP address %v", opaUrl))
 
 	key := "super_private"
 	if found := os.Getenv("SESSION_KEY"); found != "" {
 		key = found
 	}
-	log.Println("Found sessions key.")
+	log.Info("Found sessions key.")
 
 	_, file, _, _ := runtime.Caller(0)
 	resourcesDirectory := filepath.Join(file, "../../../cmd/hexaIndustriesDemo/resources")
@@ -151,7 +159,10 @@ func newApp(addr string) (*http.Server, net.Listener) {
 		UserPoolClientId:     os.Getenv("AWS_COGNITO_USER_POOL_CLIENT_ID"),
 		UserPoolClientSecret: os.Getenv("AWS_COGNITO_USER_POOL_CLIENT_SECRET"),
 	}
-	return App(session, amazon, &http.Client{}, opaUrl, listener.Addr().String(), resourcesDirectory), listener
+	client := http.Client{}
+	keysupport.CheckCaInstalled(&client)
+	server := App(session, amazon, &client, opaUrl, listener.Addr().String(), resourcesDirectory)
+	return server, listener
 }
 
 func main() {
