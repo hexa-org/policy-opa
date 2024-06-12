@@ -261,7 +261,7 @@ func (config KeyConfig) InitializeKeys() (err error) {
 		dnsNames = strings.Split(domainName, ",")
 	}
 
-	if !config.ServerCertExists() {
+	if !config.ServerCertExists() && auto {
 		log.Info("Generating server key pair")
 		certPEM, certPrivKeyPEM, err := config.generateCert(
 			config.CaConfig,
@@ -324,13 +324,17 @@ func (config KeyConfig) generateCert(
 	caPrivKey *rsa.PrivateKey,
 	keyUsage []x509.ExtKeyUsage,
 	dnsNames []string) ([]byte, []byte, error) {
+
+	// generate a random serial number (a real cert authority would have some logic behind this)
+	serialNumberLimit := new(big.Int).Lsh(big.NewInt(1), 128)
+	serialNumber, err := rand.Int(rand.Reader, serialNumberLimit)
 	cert := &x509.Certificate{
-		SerialNumber: big.NewInt(2019),
+		SerialNumber: serialNumber,
 		Subject:      config.PkixName,
 		DNSNames:     dnsNames,
 		IPAddresses:  []net.IP{net.IPv4(127, 0, 0, 1), net.IPv6loopback},
 		NotBefore:    time.Now(),
-		NotAfter:     time.Now().AddDate(10, 0, 0),
+		NotAfter:     time.Now().AddDate(2, 0, 0),
 		SubjectKeyId: []byte{1, 2, 3, 4, 6},
 		ExtKeyUsage:  keyUsage,
 		KeyUsage:     x509.KeyUsageDigitalSignature,

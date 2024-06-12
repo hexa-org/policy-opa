@@ -2,6 +2,8 @@ module github.com/hexa-org/policy-opa
 
 go 1.22
 
+toolchain go1.22.3
+
 require (
 	github.com/MicahParks/jwkset v0.5.18
 	github.com/MicahParks/keyfunc/v3 v3.3.3
