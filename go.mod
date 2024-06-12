@@ -19,7 +19,10 @@ require (
 	golang.org/x/text v0.16.0
 )
 
-require github.com/containerd/errdefs v0.1.0 // indirect
+require (
+	github.com/containerd/errdefs v0.1.0 // indirect
+	github.com/gofrs/flock v0.8.1 // indirect
+)
 
 require (
 	cloud.google.com/go/auth v0.5.1 // indirect

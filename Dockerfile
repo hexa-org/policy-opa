@@ -1,4 +1,4 @@
-FROM cgr.dev/chainguard/static
+FROM cgr.dev/chainguard/static:latest
 
 LABEL org.opencontainers.image.authors="phil.hunt@independentid.com"
 LABEL org.opencontainers.image.source="https://github.com/hexa-org/policy-opa"

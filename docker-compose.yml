@@ -54,11 +54,16 @@ services:
       PORT: 8888
       AUTHZEN_BUNDLE_DIR: "/home/authZen/bundles"
       AUTHZEN_USERPIP_FILE: "/home/authZen/users.json"
-      AUTHZEN_TOKEN_DIRECTORY: "/home/certs"
+      HEXA_TKN_DIRECTORY: "/home/certs"
       HEXA_TKN_MODE: "BUNDLE"
+      HEXA_TKN_ISSUER: "hexa-authzen"
+      HEXA_CERT_DIRECTORY: "/home/certs"
+      HEXA_SERVER_CERT: "/home/certs/authzen-cert.pem"
+      HEXA_SERVER_KEY_PATH: "/home/certs/authzen-key.pem"
+      HEXA_SERVER_DNS_NAME: "hexa-authzen"
     volumes:
       - "./deployments/authZen:/home/authZen"
-      - "./.certs:/home/certs:ro"
+      - "./.certs:/home/certs"
 
   # demo-app is a demonstration web site that uses the hexa-opa-sidecar to authenticate requests
   demo-app:

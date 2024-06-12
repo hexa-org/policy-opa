@@ -5,10 +5,12 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -210,4 +212,98 @@ func startTestServer(keyconfig *KeyConfig) *http.Server {
 	websupport.WithTransportLayerSecurity(keyconfig.ServerCertPath, keyconfig.ServerKeyPath, server)
 	go websupport.Start(server, listener)
 	return server
+}
+
+// TestLocks simulates two separate containers trying to create a key file at the same time. The lock
+// function should establish an flock on the directory and prevent two servers from conflicting
+func TestLocks(t *testing.T) {
+	dirTest, err := os.MkdirTemp("", "certs-*")
+	assert.Nil(t, err, "Should be no error on temp dir create")
+	defer os.RemoveAll(dirTest)
+
+	t.Setenv(EnvCertDirectory, dirTest)
+	t.Setenv(EnvCertCaPubKey, "")
+	t.Setenv(EnvCertCaPrivKey, "")
+	t.Setenv(EnvServerCert, "")
+	t.Setenv(EnvServerKey, "")
+	t.Setenv(EnvServerDNS, "hexaOrchestrator")
+	config := GetKeyConfig()
+
+	config2 := GetKeyConfig() // second instance
+
+	go func(config KeyConfig, t *testing.T) {
+		for i := 1; i <= 500; i++ {
+			config.waitLock()
+			// fmt.Println("TWO have lock")
+			doWork(config.CertDir, t)
+			config.clearLock()
+		}
+
+	}(config2, t)
+
+	for i := 1; i <= 500; i++ {
+		config.waitLock()
+		// fmt.Println("ONE have lock")
+		doWork(config.CertDir, t)
+		config.clearLock()
+		// fmt.Println("release lock")
+	}
+	time.Sleep(time.Second * 2)
+	fileBytes, _ := os.ReadFile(filepath.Join(config.CertDir, "test.txt"))
+	// fmt.Println(string(fileBytes))
+	fileString := string(fileBytes)
+	assert.Equal(t, 1000, strings.Count(fileString, "\n"), "Should be 1000 lines")
+	fileHandle, err := os.OpenFile(filepath.Join(config.CertDir, "test.txt"), os.O_RDWR, 0755)
+	line := lastLine(fileHandle)
+	assert.Equal(t, "1000", line, "Last line should be 1000")
+}
+
+// doWork creates a file and adds a new line with the line number each time called
+// if locking works there should be 1000 lines and the last line is 1000
+func doWork(dir string, t *testing.T) {
+	fileHandle, err := os.OpenFile(filepath.Join(dir, "test.txt"), os.O_RDWR|os.O_CREATE, 0755)
+	assert.NoError(t, err)
+	defer fileHandle.Close()
+
+	line := lastLine(fileHandle)
+	newline := 1
+	if line != "" {
+		count, _ := strconv.Atoi(line)
+		count++
+		newline = count
+	}
+	outline := fmt.Sprintf("%v\n", newline)
+	stat, _ := fileHandle.Stat()
+	filesize := stat.Size()
+	fileHandle.WriteAt([]byte(outline), filesize)
+}
+
+func lastLine(fileHandle *os.File) string {
+	line := ""
+	var cursor int64 = 0
+	stat, _ := fileHandle.Stat()
+	filesize := stat.Size()
+	if filesize > 0 {
+		for {
+			cursor -= 1
+			fileHandle.Seek(cursor, io.SeekEnd)
+
+			char := make([]byte, 1)
+			fileHandle.Read(char)
+
+			if cursor != -1 && (char[0] == 10 || char[0] == 13) { // stop if we find a line
+				break
+			}
+			if char[0] == 10 {
+				continue
+			}
+
+			line = fmt.Sprintf("%s%s", string(char), line) // there is more efficient way
+
+			if cursor == -filesize { // stop if we are at the begining
+				break
+			}
+		}
+	}
+	return line
 }

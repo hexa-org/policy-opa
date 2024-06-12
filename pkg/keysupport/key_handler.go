@@ -36,6 +36,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gofrs/flock"
 	log "golang.org/x/exp/slog"
 )
 
@@ -62,6 +63,7 @@ type KeyConfig struct {
 	ServerCertPath string
 	ServerKeyPath  string
 	CaConfig       *x509.Certificate
+	dirLock        *flock.Flock
 }
 
 /*
@@ -132,6 +134,8 @@ func GetKeyConfig() KeyConfig {
 		}
 	}
 
+	lock := flock.New(filepath.Join(certDir, "hexa.lck"))
+
 	return KeyConfig{
 		CaKeyFile:      caCertKey,
 		CaCertFile:     caCert,
@@ -144,6 +148,7 @@ func GetKeyConfig() KeyConfig {
 			Province:     []string{prov},
 			Locality:     []string{locality},
 		},
+		dirLock: lock,
 	}
 }
 
@@ -171,6 +176,8 @@ This includes:  Certificate Authority Certificate and Key (ca-cert/ca-key), Serv
 */
 func (config KeyConfig) InitializeKeys() (err error) {
 	autoFlag := os.Getenv(EnvAutoCreate)
+	config.waitLock()
+	defer config.clearLock()
 	auto := true
 	if autoFlag != "" && strings.ToLower(autoFlag[0:1]) == "f" {
 		log.Warn("Auto self-sign create is disabled (HEXA_AUTO_SELFSIGN). Will not generate keys.")
@@ -391,5 +398,19 @@ func CheckCaInstalled(client *http.Client) {
 			log.Error("Error loading CA PEM")
 		}
 
+	}
+}
+
+func (config KeyConfig) waitLock() {
+	err := config.dirLock.Lock()
+	if err != nil {
+		log.Error(err.Error())
+	}
+}
+
+func (config KeyConfig) clearLock() {
+	err := config.dirLock.Unlock()
+	if err != nil {
+		log.Error(err.Error())
 	}
 }
