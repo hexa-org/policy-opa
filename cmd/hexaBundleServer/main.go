@@ -14,13 +14,13 @@ import (
 	"strings"
 	"time"
 
+	"github.com/hexa-org/policy-opa/pkg/keysupport"
 	log "golang.org/x/exp/slog"
 
 	"github.com/gorilla/mux"
 	"github.com/hexa-org/policy-mapper/providers/openpolicyagent"
 
 	"github.com/hexa-org/policy-opa/pkg/compressionsupport"
-	"github.com/hexa-org/policy-opa/pkg/keysupport"
 	"github.com/hexa-org/policy-opa/pkg/tokensupport"
 	"github.com/hexa-org/policy-opa/pkg/websupport"
 )
@@ -34,7 +34,16 @@ const Header_Email string = "X-JWT-EMAIL"
 
 func App(addr string, bundleDir string) *http.Server {
 	basic := NewBundleApp(bundleDir)
-	return websupport.Create(addr, basic.loadHandlers(), websupport.Options{})
+	server := websupport.Create(addr, basic.loadHandlers(), websupport.Options{})
+	keyConfig := keysupport.GetKeyConfig()
+	err := keyConfig.InitializeKeys() // if new server, will generate keys automatically
+	if err != nil {
+		log.Error("Error initializing keys: " + err.Error())
+		panic(err)
+	}
+
+	websupport.WithTransportLayerSecurity(keyConfig.ServerCertPath, keyConfig.ServerKeyPath, server)
+	return server
 }
 
 type BundleApp struct {
@@ -81,8 +90,9 @@ func (a *BundleApp) checkAuthorization(scopes []string, r *http.Request) (int, s
 		token, stat := a.TokenValidator.ValidateAuthorization(r, scopes)
 		if token != nil {
 			r.Header.Set(Header_Email, token.Email)
+			return stat, token.Subject
 		}
-		return stat, token.Subject
+		return stat, "ANON"
 	}
 	return http.StatusOK, "" // For tests, just return ok when token validator not initialized
 }
@@ -200,15 +210,6 @@ func newApp(addr string) (*http.Server, net.Listener) {
 	}
 
 	app := App(listener.Addr().String(), bundleDir)
-
-	keyConfig := keysupport.GetKeyConfig()
-	err := keyConfig.InitializeKeys() // if new server, will generate keys automatically
-	if err != nil {
-		log.Error("Error initializing keys: " + err.Error())
-		os.Exit(1)
-	}
-
-	websupport.WithTransportLayerSecurity(keyConfig.ServerCertPath, keyConfig.ServerKeyPath, app)
 
 	return app, listener
 }

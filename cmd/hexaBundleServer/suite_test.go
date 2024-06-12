@@ -2,12 +2,11 @@ package main
 
 import (
 	"fmt"
-	"io"
-	"log"
 	"os"
 	"testing"
 
 	"github.com/hexa-org/policy-opa/pkg/bundleTestSupport"
+	"github.com/hexa-org/policy-opa/pkg/keysupport"
 	"github.com/hexa-org/policy-opa/pkg/tokensupport"
 )
 
@@ -16,7 +15,7 @@ var badToken string
 var adminToken string
 
 func TestMain(m *testing.M) {
-	log.SetOutput(io.Discard)
+	// log.SetOutput(io.Discard)
 	tokenDir, _ := os.MkdirTemp("", "hexaToken-*")
 
 	data, err := os.ReadFile("./resources/data.json")
@@ -24,6 +23,8 @@ func TestMain(m *testing.M) {
 
 	_ = os.Setenv(tokensupport.EnvTknIssuer, "bundle")
 	_ = os.Setenv(tokensupport.EnvTknKeyDirectory, tokenDir)
+	_ = os.Setenv(keysupport.EnvCertDirectory, tokenDir)
+	_ = os.Setenv(keysupport.EnvServerDNS, "hexa-bundle-server")
 	_ = os.Unsetenv(tokensupport.EnvTknPubKeyFile)
 	_ = os.Unsetenv(tokensupport.EnvTknPrivateKeyFile)
 	_ = os.Setenv(EnvBundleDir, bundleDir)
@@ -32,6 +33,12 @@ func TestMain(m *testing.M) {
 		fmt.Println(err.Error())
 		panic(err)
 	}
+	keyConfig := keysupport.GetKeyConfig()
+	err = keyConfig.InitializeKeys()
+	if err != nil {
+		fmt.Println(err.Error())
+	}
+	_ = os.Setenv(keysupport.EnvCertCaPubKey, keyConfig.CaCertFile)
 
 	bundleToken, err = handler.IssueToken([]string{tokensupport.ScopeBundle}, "bundle@hexa.org")
 	badToken, err = handler.IssueToken([]string{"wrongScope"}, "bundle@hexa.org")

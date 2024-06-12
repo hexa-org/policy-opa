@@ -27,13 +27,13 @@ import (
 func TestNewApp(t *testing.T) {
 	t.Setenv("PORT", "0")
 	t.Setenv("HOST", "localhost")
-	_, file, _, _ := runtime.Caller(0)
+	// _, file, _, _ := runtime.Caller(0)
 
-	t.Setenv(keysupport.EnvCertDirectory, filepath.Join(file, "../test/"))
+	// t.Setenv(keysupport.EnvCertDirectory, filepath.Join(file, "../test/"))
 	newApp("localhost:0")
 }
 
-func setup(jwtMode bool) *http.Server {
+func setup(jwtMode bool) (*http.Server, *http.Client, error) {
 	listener, _ := net.Listen("tcp", "localhost:0")
 
 	bundleDir := os.Getenv(EnvBundleDir)
@@ -47,36 +47,44 @@ func setup(jwtMode bool) *http.Server {
 	go func() {
 		websupport.Start(app, listener)
 	}()
-	healthsupport.WaitForHealthy(app)
-	return app
+	client := &http.Client{}
+	certpath := os.Getenv(keysupport.EnvCertCaPubKey)
+	fmt.Println("certpath:", certpath)
+
+	keysupport.CheckCaInstalled(client)
+
+	err := healthsupport.WaitForHealthyWithClient(app, client, fmt.Sprintf("https://%s/health", app.Addr))
+
+	return app, client, err
 }
 
 func TestApp(t *testing.T) {
-	app := setup(false)
-	response, _ := http.Get(fmt.Sprintf("http://%s/health", app.Addr))
+	app, client, err := setup(false)
+	assert.NoError(t, err)
+	response, _ := client.Get(fmt.Sprintf("https://%s/health", app.Addr))
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 	websupport.Stop(app)
 }
 
 func TestDownload(t *testing.T) {
-	app := setup(false)
-	response, _ := http.Get(fmt.Sprintf("http://%s/bundles/bundle.tar.gz", app.Addr))
+	app, client, err := setup(false)
+	assert.NoError(t, err)
+	response, _ := client.Get(fmt.Sprintf("https://%s/bundles/bundle.tar.gz", app.Addr))
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 	websupport.Stop(app)
 }
 
 func TestDownloadAuth(t *testing.T) {
-	app := setup(true)
+	app, client, _ := setup(true)
 
 	// Unauthorized request
-	reqUrl := fmt.Sprintf("http://%s/bundles/bundle.tar.gz", app.Addr)
-	response, _ := http.Get(reqUrl)
+	reqUrl := fmt.Sprintf("https://%s/bundles/bundle.tar.gz", app.Addr)
+	response, err := client.Get(reqUrl)
+	assert.NoError(t, err, "Should be no error on request")
 	assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
 
 	req, _ := http.NewRequest(http.MethodGet, reqUrl, nil)
 	req.Header.Set("Authorization", "Bearer "+bundleToken)
-	client := http.Client{}
-	defer client.CloseIdleConnections()
 
 	resp, err := client.Do(req)
 	assert.NoError(t, err, "Request completed with no error")
@@ -93,8 +101,8 @@ func TestDownloadAuth(t *testing.T) {
 }
 
 func TestUpload(t *testing.T) {
-	app := setup(false)
-
+	app, client, err := setup(false)
+	assert.NoError(t, err)
 	_, file, _, _ := runtime.Caller(0)
 	bundleDir := filepath.Join(file, "../resources/bundles")
 	tar, _ := compressionsupport.TarFromPath(bundleDir)
@@ -108,32 +116,32 @@ func TestUpload(t *testing.T) {
 	_ = writer.Close()
 
 	contentType := writer.FormDataContentType()
-	response, _ := http.Post(fmt.Sprintf("http://%s/bundles", app.Addr), contentType, buf)
+	response, _ := client.Post(fmt.Sprintf("https://%s/bundles", app.Addr), contentType, buf)
 	assert.Equal(t, http.StatusCreated, response.StatusCode)
 
-	_, _ = http.Get(fmt.Sprintf("http://%s/reset", app.Addr))
+	_, _ = client.Get(fmt.Sprintf("http://%s/reset", app.Addr))
 	websupport.Stop(app)
 }
 
 func TestReset(t *testing.T) {
-	app := setup(false)
-	response, _ := http.Get(fmt.Sprintf("http://%s/reset", app.Addr))
+	app, client, err := setup(false)
+	assert.NoError(t, err)
+	response, _ := client.Get(fmt.Sprintf("https://%s/reset", app.Addr))
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 	websupport.Stop(app)
 }
 
 func TestResetAuth(t *testing.T) {
-	app := setup(true)
+	app, client, err := setup(true)
+	assert.NoError(t, err)
 
-	reqUrl := fmt.Sprintf("http://%s/reset", app.Addr)
-	response, _ := http.Get(reqUrl)
+	reqUrl := fmt.Sprintf("https://%s/reset", app.Addr)
+	response, _ := client.Get(reqUrl)
 
 	assert.Equal(t, http.StatusUnauthorized, response.StatusCode)
 
 	req, _ := http.NewRequest(http.MethodGet, reqUrl, nil)
 	req.Header.Set("Authorization", "Bearer "+adminToken)
-	client := http.Client{}
-	defer client.CloseIdleConnections()
 
 	resp, err := client.Do(req)
 	assert.NoError(t, err, "Request completed with no error")
@@ -142,7 +150,40 @@ func TestResetAuth(t *testing.T) {
 	websupport.Stop(app)
 }
 
-func TestNewAppWithTransportLayerSecurity(t *testing.T) {
+// Test_EmptyBundleDir simulates what happens with HexaBundleServer starts in docker (with an empty bundles directory)
+func Test_EmptyBundleDir(t *testing.T) {
+	bundleDir := bundleTestSupport.InitTestEmptyBundleDir(t)
+	defer bundleTestSupport.Cleanup(bundleDir)
+	saveDir := os.Getenv(EnvBundleDir)
+	_ = os.Setenv(EnvBundleDir, bundleDir)
+
+	app, client, err := setup(false)
+	assert.NoError(t, err)
+
+	response, _ := client.Get(fmt.Sprintf("https://%s/health", app.Addr))
+	assert.Equal(t, http.StatusOK, response.StatusCode)
+
+	dataFilePath := filepath.Join(bundleDir, "bundle", "data.json")
+	dataBytes, err := os.ReadFile(dataFilePath)
+	assert.NoError(t, err, "Data file should exist!")
+	assert.Equal(t, hexaPolicyBytes, dataBytes, "Check the file created was the default policy")
+
+	manifestPath := filepath.Join(bundleDir, "bundle", ".manifest")
+	manifestBytes, err := os.ReadFile(manifestPath)
+	assert.NoError(t, err, "Manifest file should exist!")
+	assert.Greater(t, len(manifestBytes), 10, "Manifest should have a few bytes")
+
+	regoPath := filepath.Join(bundleDir, "bundle", "hexaPolicy.rego")
+	regoBytes, err := os.ReadFile(regoPath)
+	assert.NoError(t, err, "Manifest file should exist!")
+	assert.Greater(t, len(regoBytes), 100, "Rego should have > 100 bytes")
+
+	websupport.Stop(app)
+
+	_ = os.Setenv(EnvBundleDir, saveDir)
+}
+
+func TestZZNewAppWithTransportLayerSecurity(t *testing.T) {
 	_, file, _, _ := runtime.Caller(0)
 	t.Setenv(keysupport.EnvServerCert, filepath.Join(file, "../test/server-cert.pem"))
 	t.Setenv(keysupport.EnvServerKey, filepath.Join(file, "../test/server-key.pem"))
@@ -177,23 +218,26 @@ func TestNewAppWithTransportLayerSecurity(t *testing.T) {
 	)
 }
 
-func TestNewAppWithTLS_PanicsWithBadServerCertPath(t *testing.T) {
+func TestZZNewAppWithTLS_PanicsWithBadServerCertPath(t *testing.T) {
+	// Should not panic as long as the private key is available
 	_, file, _, _ := runtime.Caller(0)
-	t.Setenv("HEXA_SERVER_CERT", "/do-not-exist")
-	t.Setenv("HEXA_SERVER_KEY_PATH", filepath.Join(file, "../test/server-key.pem"))
+	t.Setenv(keysupport.EnvServerCert, "/do-not-exist")
+	t.Setenv(keysupport.EnvServerKey, filepath.Join(file, "../test/server-key.pem"))
+	t.Setenv(keysupport.EnvAutoCreate, "false")
 
 	assert.Panics(t, func() { newApp("localhost:0") })
 }
 
-func TestNewAppWithTLS_PanicsWithBadServerKeyPath(t *testing.T) {
+func TestZZNewAppWithTLS_PanicsWithBadServerKeyPath(t *testing.T) {
 	_, file, _, _ := runtime.Caller(0)
-	t.Setenv("HEXA_SERVER_CERT", filepath.Join(file, "../test/server-cert.pem"))
-	t.Setenv("HEXA_SERVER_KEY_PATH", "/do-not-exist")
+	t.Setenv(keysupport.EnvServerCert, filepath.Join(file, "../test/server-cert.pem"))
+	t.Setenv(keysupport.EnvServerKey, "/do-not-exist")
+	t.Setenv(keysupport.EnvAutoCreate, "false")
 
 	assert.Panics(t, func() { newApp("localhost:0") })
 }
 
-func TestNewAppWithTLS_PanicsWithBadPair(t *testing.T) {
+func TestZZNewAppWithTLS_PanicsWithBadPair(t *testing.T) {
 	tmp := t.TempDir()
 
 	certFile := filepath.Join(tmp, fmt.Sprintf("%s-cert.pem", t.Name()))
@@ -220,36 +264,4 @@ func must(file []byte, err error) []byte {
 		panic(fmt.Sprintf("unable to read file: %s", err))
 	}
 	return file
-}
-
-// TestZZ_EmptyBundleDir simulates what happens with HexaBundleServer starts in docker (with an empty bundles directory)
-func TestZZ_EmptyBundleDir(t *testing.T) {
-	bundleDir := bundleTestSupport.InitTestEmptyBundleDir(t)
-	defer bundleTestSupport.Cleanup(bundleDir)
-	saveDir := os.Getenv(EnvBundleDir)
-	_ = os.Setenv(EnvBundleDir, bundleDir)
-
-	app := setup(false)
-
-	response, _ := http.Get(fmt.Sprintf("http://%s/health", app.Addr))
-	assert.Equal(t, http.StatusOK, response.StatusCode)
-
-	dataFilePath := filepath.Join(bundleDir, "bundle", "data.json")
-	dataBytes, err := os.ReadFile(dataFilePath)
-	assert.NoError(t, err, "Data file should exist!")
-	assert.Equal(t, hexaPolicyBytes, dataBytes, "Check the file created was the default policy")
-
-	manifestPath := filepath.Join(bundleDir, "bundle", ".manifest")
-	manifestBytes, err := os.ReadFile(manifestPath)
-	assert.NoError(t, err, "Manifest file should exist!")
-	assert.Greater(t, len(manifestBytes), 10, "Manifest should have a few bytes")
-
-	regoPath := filepath.Join(bundleDir, "bundle", "hexaPolicy.rego")
-	regoBytes, err := os.ReadFile(regoPath)
-	assert.NoError(t, err, "Manifest file should exist!")
-	assert.Greater(t, len(regoBytes), 100, "Rego should have > 100 bytes")
-
-	websupport.Stop(app)
-
-	_ = os.Setenv(EnvBundleDir, saveDir)
 }

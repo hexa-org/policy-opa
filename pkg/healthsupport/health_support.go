@@ -59,10 +59,10 @@ func HealthHandlerFunctionWithChecks(w http.ResponseWriter, _ *http.Request, che
 }
 
 func WaitForHealthy(server *http.Server) {
-	WaitForHealthyWithClient(server, http.DefaultClient, fmt.Sprintf("http://%s/health", server.Addr))
+	_ = WaitForHealthyWithClient(server, http.DefaultClient, fmt.Sprintf("http://%s/health", server.Addr))
 }
 
-func WaitForHealthyWithClient(server *http.Server, client httpClient, url string) {
+func WaitForHealthyWithClient(server *http.Server, client httpClient, url string) error {
 	var isLive bool
 	for !isLive {
 		resp, err := client.Get(url)
@@ -70,5 +70,10 @@ func WaitForHealthyWithClient(server *http.Server, client httpClient, url string
 			log.Println("Server is healthy.", server.Addr)
 			isLive = true
 		}
+		if err != nil {
+			log.Println("Request failed:", err)
+			return err
+		}
 	}
+	return nil
 }
