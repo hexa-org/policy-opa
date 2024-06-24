@@ -9,9 +9,9 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
+	"github.com/hexa-org/policy-mapper/pkg/healthsupport"
+	"github.com/hexa-org/policy-mapper/pkg/websupport"
 	"github.com/hexa-org/policy-opa/cmd/hexaIndustriesDemo/azuresupport"
-	"github.com/hexa-org/policy-opa/pkg/healthsupport"
-	"github.com/hexa-org/policy-opa/pkg/websupport"
 
 	"github.com/stretchr/testify/assert"
 )

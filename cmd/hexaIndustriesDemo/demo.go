@@ -9,16 +9,16 @@ import (
 	"path/filepath"
 	"runtime"
 
-	"github.com/hexa-org/policy-opa/pkg/keysupport"
+	"github.com/hexa-org/policy-mapper/pkg/keysupport"
 	log "golang.org/x/exp/slog"
 
 	"github.com/gorilla/mux"
 	"github.com/gorilla/sessions"
+	"github.com/hexa-org/policy-mapper/pkg/websupport"
 	"github.com/hexa-org/policy-opa/cmd/hexaIndustriesDemo/amazonsupport"
 	"github.com/hexa-org/policy-opa/cmd/hexaIndustriesDemo/azuresupport"
 	"github.com/hexa-org/policy-opa/cmd/hexaIndustriesDemo/googlesupport"
 	"github.com/hexa-org/policy-opa/pkg/decisionsupport"
-	"github.com/hexa-org/policy-opa/pkg/websupport"
 
 	"github.com/hexa-org/policy-opa/pkg/decisionsupportproviders"
 )
@@ -166,5 +166,6 @@ func newApp(addr string) (*http.Server, net.Listener) {
 }
 
 func main() {
+	log.Info("Hexa Industries Demo Server starting...", "version", "0.65.2")
 	websupport.Start(newApp("0.0.0.0:8886"))
 }
