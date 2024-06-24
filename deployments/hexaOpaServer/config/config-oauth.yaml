@@ -1,0 +1,23 @@
+services:
+  - name: hexaBundleServer
+    url: ${HEXA_CONFIG_URL}
+    credentials:
+      oauth2:
+        token_url: ${HEXA_OAUTH_TOKEN_ENDPOINT}
+        client_id: ${HEXA_OAUTH_CLIENT_ID}
+        client_secret: ${HEXA_OAUTH_CLIENT_SECRET}
+        scopes: ${HEXA_OAUTH_SCOPE}
+    tls:
+      ca_cert: ${HEXA_CA_CERT}
+
+bundles:
+  hexaPolicy:
+    service: hexaBundleServer
+    resource: bundles/bundle.tar.gz
+    persist: true
+    polling:
+      min_delay_seconds: 10
+      max_delay_seconds: 30
+
+decision_logs:
+  console: true
