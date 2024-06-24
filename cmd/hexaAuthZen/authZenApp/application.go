@@ -7,21 +7,22 @@ import (
 	"os"
 	"strings"
 
+	"github.com/hexa-org/policy-mapper/pkg/oauth2support"
+	"github.com/hexa-org/policy-mapper/pkg/tokensupport"
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/config"
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/decisionHandler"
-	"github.com/hexa-org/policy-opa/pkg/tokensupport"
 )
 
 // var az *AuthZenApp
 
 type AuthZenApp struct {
-	Server         *http.Server
-	Router         *HttpRouter
-	BaseUrl        *url.URL
-	HostName       string
-	Decision       *decisionHandler.DecisionHandler
-	bundleDir      string
-	TokenValidator *tokensupport.TokenHandler
+	Server          *http.Server
+	Router          *HttpRouter
+	BaseUrl         *url.URL
+	HostName        string
+	Decision        *decisionHandler.DecisionHandler
+	bundleDir       string
+	TokenAuthorizer *oauth2support.ResourceJwtAuthorizer
 }
 
 func (az *AuthZenApp) Name() string {
@@ -44,7 +45,7 @@ func StartServer(addr string, baseUrlString string) *AuthZenApp {
 			issuerName = "authzen"
 		}
 		var err error
-		az.TokenValidator, err = tokensupport.TokenValidator(issuerName)
+		az.TokenAuthorizer, err = oauth2support.NewResourceJwtAuthorizer()
 		if err != nil {
 			config.ServerLog.Println(fmt.Sprintf("FATAL Loading Token Validator: %s", err.Error()))
 			panic(err)

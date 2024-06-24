@@ -13,13 +13,14 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/hexa-org/policy-mapper/pkg/healthsupport"
+	"github.com/hexa-org/policy-mapper/pkg/oauth2support"
+	"github.com/hexa-org/policy-mapper/pkg/tokensupport"
 	"github.com/hexa-org/policy-opa/api/infoModel"
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/config"
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/userHandler"
 	"github.com/hexa-org/policy-opa/pkg/bundleTestSupport"
 	"github.com/hexa-org/policy-opa/pkg/compressionsupport"
-	"github.com/hexa-org/policy-opa/pkg/healthsupport"
-	"github.com/hexa-org/policy-opa/pkg/tokensupport"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -62,6 +63,12 @@ func (s *testSuite) setUpTokenSystem() {
 	s.bundleAuth, err = s.tokenHandler.IssueToken([]string{tokensupport.ScopeBundle}, "bundle@hexa.org")
 	s.azAuth, err = s.tokenHandler.IssueToken([]string{tokensupport.ScopeDecision}, "az@hexa.org")
 
+	_ = os.Unsetenv(oauth2support.EnvOAuthJwksUrl)
+	_ = os.Setenv(oauth2support.EnvTknPubKeyFile, s.tokenHandler.PublicKeyPath)
+	_ = os.Setenv(oauth2support.EnvJwtKid, "authzen")
+	_ = os.Setenv(oauth2support.EnvJwtAudience, "authzen")
+	_ = os.Setenv(oauth2support.EnvJwtAuth, "true")
+
 }
 
 func (s *testSuite) SetupSuite() {
@@ -72,7 +79,7 @@ func (s *testSuite) SetupSuite() {
 	fmt.Println("Starting Authzen server...")
 	_ = os.Setenv(config.EnvBundleDir, s.bundleDir)
 	_ = os.Setenv(config.EnvAuthUserPipFile, userHandler.DefaultUserPipFile)
-	_ = os.Setenv(tokensupport.EnvTknEnforceMode, tokensupport.ModeEnforceAll) // tokens not needed for testings
+	_ = os.Setenv(tokensupport.EnvTknEnforceMode, tokensupport.ModeEnforceAll)
 	listener, _ := net.Listen("tcp", "localhost:0")
 	s.addr = listener.Addr().String()
 	s.app = StartServer(s.addr, "")
@@ -130,7 +137,7 @@ func (s *testSuite) TestAuthorizationEndpoint() {
 	assert.Empty(s.T(), bodyBytes, "Check no body in response")
 
 	reqId := resp.Header.Get(config.HeaderRequestId)
-	assert.Equal(s.T(), "1234", reqId, "Request id should be 1234")
+	assert.Equal(s.T(), "", reqId, "Request id should be empty")
 
 	fmt.Println("Testing forbidden...")
 
@@ -147,7 +154,7 @@ func (s *testSuite) TestAuthorizationEndpoint() {
 	assert.Empty(s.T(), bodyBytes, "Check no body in response")
 
 	reqId = resp.Header.Get(config.HeaderRequestId)
-	assert.Equal(s.T(), "5678", reqId, "Request id should be 1234")
+	assert.Equal(s.T(), "", reqId, "Request id should be empty")
 
 	fmt.Println("Testing authorization...")
 	req.Header.Set("Authorization", "Bearer "+s.azAuth)

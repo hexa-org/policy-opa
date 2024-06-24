@@ -9,13 +9,14 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/hexa-org/policy-mapper/pkg/oauth2support"
+	"github.com/hexa-org/policy-mapper/pkg/tokensupport"
 	"github.com/hexa-org/policy-opa/api/infoModel"
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/config"
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/decisionHandler"
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/userHandler"
 	"github.com/hexa-org/policy-opa/pkg/bundleTestSupport"
 	"github.com/hexa-org/policy-opa/pkg/compressionsupport"
-	"github.com/hexa-org/policy-opa/pkg/tokensupport"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -171,7 +172,13 @@ func TestHandleSecurity(t *testing.T) {
 	_ = os.Setenv(config.EnvAuthUserPipFile, userHandler.DefaultUserPipFile)
 	az := AuthZenApp{bundleDir: bundleDir}
 	az.Decision = decisionHandler.NewDecisionHandler()
-	az.TokenValidator = tokenHandler
+	_ = os.Unsetenv(oauth2support.EnvOAuthJwksUrl)
+	_ = os.Setenv(oauth2support.EnvTknPubKeyFile, tokenHandler.PublicKeyPath)
+	_ = os.Setenv(oauth2support.EnvJwtKid, "authzen")
+	_ = os.Setenv(oauth2support.EnvJwtAudience, "authzen")
+	_ = os.Setenv(oauth2support.EnvJwtAuth, "true")
+
+	az.TokenAuthorizer, err = oauth2support.NewResourceJwtAuthorizer()
 
 	body := infoModel.AuthRequest{
 		Subject: infoModel.SubjectInfo{Identity: "CiRmZDM2MTRkMy1jMzlhLTQ3ODEtYjdiZC04Yjk2ZjVhNTEwMGQSBWxvY2Fs"},
@@ -184,7 +191,9 @@ func TestHandleSecurity(t *testing.T) {
 	req.Header.Set(config.HeaderRequestId, "1234")
 	req.Header.Set("Authorization", "Bearer "+authToken)
 	rr := httptest.NewRecorder()
-	az.HandleEvaluation(rr, req)
+
+	jwtHandler := oauth2support.JwtAuthenticationHandler(az.HandleEvaluation, az.TokenAuthorizer, []string{tokensupport.ScopeDecision})
+	jwtHandler.ServeHTTP(rr, req)
 
 	assert.Equal(t, "1234", rr.Header().Get(config.HeaderRequestId), "Check request id is returned")
 	assert.Equal(t, http.StatusOK, rr.Code, "Request processed ok")
@@ -197,13 +206,15 @@ func TestHandleSecurity(t *testing.T) {
 
 	req.Header.Del("Authorization")
 	rr = httptest.NewRecorder()
-	az.HandleEvaluation(rr, req)
+	jwtHandler.ServeHTTP(rr, req)
 	assert.Equal(t, http.StatusUnauthorized, rr.Code, "Request is unauthorized")
+
+	bundleHandler := oauth2support.JwtAuthenticationHandler(az.BundleDownload, az.TokenAuthorizer, []string{tokensupport.ScopeBundle})
 
 	req, err = http.NewRequest("GET", config.EndpointGetOpaBundles, nil)
 	req.Header.Set("Authorization", "Bearer "+authToken)
 	rr = httptest.NewRecorder()
-	az.BundleDownload(rr, req)
+	bundleHandler.ServeHTTP(rr, req)
 	assert.Equal(t, http.StatusForbidden, rr.Code, "Check request is forbidden")
 
 	inputStr :=
@@ -212,7 +223,7 @@ func TestHandleSecurity(t *testing.T) {
 	req.Header.Set(config.HeaderRequestId, "1234")
 	req.Header.Set("Authorization", "Bearer "+authToken)
 	rr = httptest.NewRecorder()
-	az.HandleEvaluation(rr, req)
+	jwtHandler.ServeHTTP(rr, req)
 
 	assert.Equal(t, "1234", rr.Header().Get(config.HeaderRequestId), "Check request id is returned")
 	assert.Equal(t, http.StatusOK, rr.Code, "Request processed ok")
