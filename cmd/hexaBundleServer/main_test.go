@@ -15,12 +15,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/hexa-org/policy-mapper/pkg/healthsupport"
+	"github.com/hexa-org/policy-mapper/pkg/keysupport"
+	"github.com/hexa-org/policy-mapper/pkg/oauth2support"
+	"github.com/hexa-org/policy-mapper/pkg/tokensupport"
+	"github.com/hexa-org/policy-mapper/pkg/websupport"
 	"github.com/hexa-org/policy-opa/pkg/bundleTestSupport"
 	"github.com/hexa-org/policy-opa/pkg/compressionsupport"
-	"github.com/hexa-org/policy-opa/pkg/healthsupport"
-	"github.com/hexa-org/policy-opa/pkg/keysupport"
-	"github.com/hexa-org/policy-opa/pkg/tokensupport"
-	"github.com/hexa-org/policy-opa/pkg/websupport"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -39,9 +40,12 @@ func setup(jwtMode bool) (*http.Server, *http.Client, error) {
 	bundleDir := os.Getenv(EnvBundleDir)
 	if jwtMode {
 		_ = os.Setenv(tokensupport.EnvTknEnforceMode, tokensupport.ModeEnforceAll)
+		_ = os.Setenv(oauth2support.EnvJwtAuth, "true")
 	} else {
+		_ = os.Setenv(oauth2support.EnvJwtAuth, "false")
 		_ = os.Setenv(tokensupport.EnvTknEnforceMode, tokensupport.ModeEnforceAnonymous)
 	}
+	_ = os.Setenv(websupport.EnvTlsEnabled, "true")
 
 	app := App(listener.Addr().String(), bundleDir)
 	go func() {
@@ -69,7 +73,8 @@ func TestApp(t *testing.T) {
 func TestDownload(t *testing.T) {
 	app, client, err := setup(false)
 	assert.NoError(t, err)
-	response, _ := client.Get(fmt.Sprintf("https://%s/bundles/bundle.tar.gz", app.Addr))
+	response, err := client.Get(fmt.Sprintf("https://%s/bundles/bundle.tar.gz", app.Addr))
+	assert.NoError(t, err, "Should be no error on get")
 	assert.Equal(t, http.StatusOK, response.StatusCode)
 	websupport.Stop(app)
 }

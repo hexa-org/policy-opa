@@ -5,9 +5,10 @@ import (
 	"os"
 	"testing"
 
+	"github.com/hexa-org/policy-mapper/pkg/keysupport"
+	"github.com/hexa-org/policy-mapper/pkg/oauth2support"
+	"github.com/hexa-org/policy-mapper/pkg/tokensupport"
 	"github.com/hexa-org/policy-opa/pkg/bundleTestSupport"
-	"github.com/hexa-org/policy-opa/pkg/keysupport"
-	"github.com/hexa-org/policy-opa/pkg/tokensupport"
 )
 
 var bundleToken string
@@ -39,7 +40,9 @@ func TestMain(m *testing.M) {
 		fmt.Println(err.Error())
 	}
 	_ = os.Setenv(keysupport.EnvCertCaPubKey, keyConfig.CaCertFile)
-
+	_ = os.Setenv(oauth2support.EnvTknPubKeyFile, handler.PublicKeyPath)
+	_ = os.Setenv(oauth2support.EnvJwtKid, handler.TokenIssuer)
+	_ = os.Setenv(oauth2support.EnvJwtAudience, handler.TokenIssuer)
 	bundleToken, err = handler.IssueToken([]string{tokensupport.ScopeBundle}, "bundle@hexa.org")
 	badToken, err = handler.IssueToken([]string{"wrongScope"}, "bundle@hexa.org")
 	adminToken, err = handler.IssueToken([]string{tokensupport.ScopeAdmin}, "bundle@hexa.org")

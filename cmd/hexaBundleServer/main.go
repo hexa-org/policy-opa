@@ -14,15 +14,16 @@ import (
 	"strings"
 	"time"
 
-	"github.com/hexa-org/policy-opa/pkg/keysupport"
+	"github.com/hexa-org/policy-mapper/pkg/keysupport"
+	"github.com/hexa-org/policy-mapper/pkg/oauth2support"
 	log "golang.org/x/exp/slog"
 
 	"github.com/gorilla/mux"
 	"github.com/hexa-org/policy-mapper/providers/openpolicyagent"
 
+	"github.com/hexa-org/policy-mapper/pkg/tokensupport"
+	"github.com/hexa-org/policy-mapper/pkg/websupport"
 	"github.com/hexa-org/policy-opa/pkg/compressionsupport"
-	"github.com/hexa-org/policy-opa/pkg/tokensupport"
-	"github.com/hexa-org/policy-opa/pkg/websupport"
 )
 
 //go:embed resources/hexaIndustries-data.json
@@ -30,11 +31,11 @@ var hexaPolicyBytes []byte // hexaPolicyBytes holds the default policy which is 
 
 const EnvBundleDir = "BUNDLE_DIR"
 const DefBundlePath string = "/home/resources/bundles"
-const Header_Email string = "X-JWT-EMAIL"
 
 func App(addr string, bundleDir string) *http.Server {
 	basic := NewBundleApp(bundleDir)
-	server := websupport.Create(addr, basic.loadHandlers(), websupport.Options{})
+
+	server := websupport.Create(addr, basic.loadHandlers(basic.tokenAuthorizer), websupport.Options{})
 	keyConfig := keysupport.GetKeyConfig()
 	err := keyConfig.InitializeKeys() // if new server, will generate keys automatically
 	if err != nil {
@@ -47,27 +48,20 @@ func App(addr string, bundleDir string) *http.Server {
 }
 
 type BundleApp struct {
-	bundleDir      string
-	TokenValidator *tokensupport.TokenHandler
+	bundleDir       string
+	tokenAuthorizer *oauth2support.ResourceJwtAuthorizer
 }
 
 func NewBundleApp(bundleDir string) BundleApp {
 	app := BundleApp{bundleDir: bundleDir}
-	authMode := os.Getenv(tokensupport.EnvTknEnforceMode)
-	if !strings.EqualFold(tokensupport.ModeEnforceAnonymous, authMode) {
-		issuerName := os.Getenv(tokensupport.EnvTknIssuer)
-		if issuerName == "" {
-			issuerName = "authzen"
-		}
-		var err error
-		app.TokenValidator, err = tokensupport.TokenValidator(issuerName)
-		if err != nil {
-			log.Error(fmt.Sprintf("FATAL Loading Token Validator: %s", err.Error()))
-			panic(err)
-		}
+	var err error
+	app.tokenAuthorizer, err = oauth2support.NewResourceJwtAuthorizer()
+	if err != nil {
+		log.Error(fmt.Sprintf("FATAL Loading Token Validator: %s", err.Error()))
+		panic(err)
 	}
 
-	_, err := os.Stat(filepath.Join(bundleDir, "bundle"))
+	_, err = os.Stat(filepath.Join(bundleDir, "bundle"))
 	if os.IsNotExist(err) {
 		log.Warn("Bundle directory not found, initializing with default HexaIndustries policy bundle")
 
@@ -85,31 +79,14 @@ func NewBundleApp(bundleDir string) BundleApp {
 	return app
 }
 
-func (a *BundleApp) checkAuthorization(scopes []string, r *http.Request) (int, string) {
-	if a.TokenValidator != nil {
-		token, stat := a.TokenValidator.ValidateAuthorization(r, scopes)
-		if token != nil {
-			r.Header.Set(Header_Email, token.Email)
-			return stat, token.Subject
-		}
-		return stat, "ANON"
-	}
-	return http.StatusOK, "" // For tests, just return ok when token validator not initialized
-}
-
 func (a *BundleApp) download(writer http.ResponseWriter, r *http.Request) {
-	authStatus, subject := a.checkAuthorization([]string{tokensupport.ScopeBundle}, r)
-	if authStatus != http.StatusOK {
-		writer.WriteHeader(authStatus)
-		return
-	}
-
 	latestBundle := a.latest(a.bundleDir)
 
 	tar, _ := compressionsupport.TarFromPath(fmt.Sprintf("%s/%s", a.bundleDir, latestBundle))
 	writer.Header().Set("Content-Type", "application/gzip")
 	_ = compressionsupport.Gzip(writer, tar)
 	writer.Header()
+	subject := r.Header.Get(oauth2support.Header_Subj)
 	log.Info("Download bundle", "subject", subject, "address", r.RemoteAddr)
 }
 
@@ -144,11 +121,6 @@ func (a *BundleApp) available(dir string) []fs.FileInfo {
 }
 
 func (a *BundleApp) upload(writer http.ResponseWriter, r *http.Request) {
-	authStatus, subject := a.checkAuthorization([]string{tokensupport.ScopeBundle}, r)
-	if authStatus != http.StatusOK {
-		writer.WriteHeader(authStatus)
-		return
-	}
 	_ = r.ParseMultipartForm(32 << 20)
 	bundleFile, _, _ := r.FormFile("bundle")
 	gzip, _ := compressionsupport.UnGzip(bundleFile)
@@ -157,15 +129,12 @@ func (a *BundleApp) upload(writer http.ResponseWriter, r *http.Request) {
 	path := filepath.Join(a.bundleDir, fmt.Sprintf(".bundle-%d", rand.Uint64()))
 	_ = compressionsupport.UnTarToPath(bytes.NewReader(gzip), path)
 	writer.WriteHeader(http.StatusCreated)
+	subject := r.Header.Get(oauth2support.Header_Subj)
 	log.Info("Upload bundle", "subject", subject, "address", r.RemoteAddr)
 }
 
 func (a *BundleApp) reset(writer http.ResponseWriter, r *http.Request) {
-	authStatus, subject := a.checkAuthorization([]string{tokensupport.ScopeAdmin}, r)
-	if authStatus != http.StatusOK {
-		writer.WriteHeader(authStatus)
-		return
-	}
+	subject := r.Header.Get(oauth2support.Header_Subj)
 	log.Warn("Bundle RESET received", "subject", subject, "address", r.RemoteAddr)
 	for _, available := range a.available(a.bundleDir) {
 		if strings.Index(available.Name(), ".bundle") == 0 {
@@ -180,11 +149,12 @@ func (a *BundleApp) reset(writer http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (a *BundleApp) loadHandlers() func(router *mux.Router) {
+func (a *BundleApp) loadHandlers(jwtAuthorizer *oauth2support.ResourceJwtAuthorizer) func(router *mux.Router) {
+
 	return func(router *mux.Router) {
-		router.HandleFunc("/bundles/bundle.tar.gz", a.download).Methods("GET")
-		router.HandleFunc("/bundles", a.upload).Methods("POST")
-		router.HandleFunc("/reset", a.reset).Methods("GET")
+		router.HandleFunc("/bundles/bundle.tar.gz", oauth2support.JwtAuthenticationHandler(a.download, jwtAuthorizer, []string{tokensupport.ScopeBundle, tokensupport.ScopeAdmin})).Methods("GET")
+		router.HandleFunc("/bundles", oauth2support.JwtAuthenticationHandler(a.upload, jwtAuthorizer, []string{tokensupport.ScopeBundle, tokensupport.ScopeAdmin})).Methods("POST")
+		router.HandleFunc("/reset", oauth2support.JwtAuthenticationHandler(a.reset, jwtAuthorizer, []string{tokensupport.ScopeAdmin})).Methods("GET")
 	}
 }
 
@@ -215,6 +185,7 @@ func newApp(addr string) (*http.Server, net.Listener) {
 }
 
 func main() {
+	log.Info("Hexa OPA Bundle Server starting...", "version", "0.65.2")
 	app, listener := newApp("0.0.0.0:8889")
 	websupport.Start(app, listener)
 }
