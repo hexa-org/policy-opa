@@ -10,10 +10,10 @@ import (
 	"testing"
 
 	"github.com/gorilla/mux"
+	"github.com/hexa-org/policy-mapper/pkg/healthsupport"
+	"github.com/hexa-org/policy-mapper/pkg/websupport"
 	"github.com/hexa-org/policy-opa/pkg/decisionsupport"
 	"github.com/hexa-org/policy-opa/pkg/decisionsupportproviders"
-	"github.com/hexa-org/policy-opa/pkg/healthsupport"
-	"github.com/hexa-org/policy-opa/pkg/websupport"
 
 	"github.com/stretchr/testify/assert"
 )
