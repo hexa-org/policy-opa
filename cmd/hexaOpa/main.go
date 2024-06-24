@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/hexa-org/policy-mapper/pkg/keysupport"
+	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/config"
 	"github.com/hexa-org/policy-opa/server/conditionEvaluator"
 	"github.com/hexa-org/policy-opa/server/hexaFilter"
 	"github.com/open-policy-agent/opa/ast"
@@ -18,7 +19,7 @@ import (
 func main() {
 	// Configure JSON logger which is the normal OPA log format.
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	logger.Info("Hexa OPA Server starting...", "version", "0.65.2")
+	logger.Info("Hexa OPA Server starting...", "version", config.HexaAuthZenVersion)
 
 	logger.Info("registering plugin " + hexaFilter.PluginName)
 	rego.RegisterBuiltin2(
