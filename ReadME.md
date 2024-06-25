@@ -22,7 +22,7 @@ The HexaOpa server is a normal OPA server and can run any rego policy. A docker 
 
 As with `OPA`, `hexaOpa` may be deployed as a sidecar or in other deployment patterns OPA Server. For more information, see the Open Policy Agent [Deployment Guide](https://www.openpolicyagent.org/docs/latest/deployments/).
 
-### Building and Running Hexa OPA Locally
+## Building and Running Hexa OPA Locally
 
 Prerequisites:
 * [Go Lang 1.22](https://go.dev/doc/install)
@@ -64,6 +64,60 @@ environment variables to point to the appropriate directory/files.  See `.env` f
 The HexaOpa image is available in the [independentid/hexaopa](https://hub.docker.com/r/independentid/hexaopa) docker repository.  To use these images in a K8S configuration
 or docker-compose, reference the image `independentid/hexaopa:latest`.
 
+### Hexa Environment Variables
+
+The following environment variables are used in Hexa images and packages.
+
+| Name                                                                              | Default         | Description                                                                             |
+|-----------------------------------------------------------------------------------|-----------------|-----------------------------------------------------------------------------------------|
+| HEXA_TLS_ENABLED                                                                  | true            | Enable TLS if supported (default: False)                                                |
+| HEXA_CERT_DIRECTORY                                                               | $HOME/.certs    | Directory where PEM files are stored and generated                                      |
+| HEXA_CA_KEYFILE                                                                   | ca-key.pem      | Private key PEM file used to generate self-signed TLS certs                             |
+| HEXA_CA_CERT                                                                      | ca-cert.pem     | Certificate Authority Public Key PEM file. Used to validate server certificates         |
+| HEXA_SERVER_KEY_PATH                                                              | server-key.pem  | Server private key file used to establish TLS services.                                 |
+| HEXA_SERVER_CERT                                                                  | server-cert.pem | TLS Public certificate file for establishing TLS services                               |
+| HEXA_SERVER_DNS_NAME                                                              |                 | Comma separated list of DNS names. Used when auto-generating a server TLS certificate   |
+| HEXA_AUTO_SELFSIGN                                                                | true            | When set to false, server will not attempt to auto generate self-signed certificaes     |
+| HEXA_CERT_ORG, <br/>HEXA_CERT_COUNTRY,<br/>HEXA_CERT_PROV,<br/>HEXA_CERT_LOCALITY |                 | Values to be used when generating TLS certificates                                      |
+| HEXA_TOKEN_JWKSURL                                                                | <none>          | When relying on token based authentication, the URL of the JWKS endpoint                |
+| HEXA_TKN_PUBKEYFILE                                                               | <none>          | Used instead of JWKSURL to specify the public key (PEM) of a JWT token issuer           |
+| HEXA_JWT_AUTH_ENABLE                                                              | false           | Enable token based authentication                                                       |
+| HEXA_JWT_REALM                                                                    | undefined       | The OAuth2 realm - used in error message response to clients to indicate token issuer   |
+| HEXA_JWT_AUDIENCE                                                                 | orchestrator    | The audience value that should be present in received tokens (used by Orchestrator API) |
+| HEXA_JWT_SCOPE                                                                    | orchestrator    | Token 'scope' claim value expected (e.g. `orchestrator`)                                |
+| HEXA_OAUTH_CLIENT_ID                                                              |                 | The OAuth ClientId value used by Admin UI at the OAuth Token Endpoint                   |
+| HEXA_OAUTH_CLIENT_SECRET                                                          |                 | OAuth Client secret used in the client credentials flow                                 |
+| HEXA_OAUTH_CLIENT_SCOPE                                                           |                 | If supplied, the scope value to be passed in the Client Credentials Grant request       |
+| HEXA_OAUTH_TOKEN_ENDPOINT                                                         |                 | The OAUTH2 Token endpoint URL used to execute the client credentials grant.             |
+
+#### Validating Access
+
+In general, parameters prefixed with `HEXA_JWT` are used by servers to configure validation of tokens used to access API. 
+When configured, one of `HEXA_TOKEN_JWKSURL` or `HEXA_TKN_PUBKEYFILE` must be specified to validate JWT tokens.
+
+#### Accessing Other Services
+
+Environment variables prefixed with `HEXA_OAUTH` are used by Hexa services that call other endpoints and need to obtain tokens.
+Current Hexa systems support the OAuth Client Credentials Grant (see [RFC6749 Section 4.4](https://datatracker.ietf.org/doc/html/rfc6749#section-4.4)).
+
+#### TLS Configuration
+
+In general all Hexa servers have TLS enabled by default unless `HEXA_TLS_ENABLED` is set to false. This may be desirable in test/development
+environments or in cases where the container environment provides TLS termination (e.g. Google Application Engine).
+
+When enabled, HexaBundleServer and HexaAuthZen server will look for a key in `HEXA_SERVER_KEY_PATH` first. If a private and 
+public key (`HEXA_SERVER_CERT`) are found the server will start with TLS enabled. If the private key is not found, the server
+will then look at `HEXA_AUTO_SELFSIGN` and `HEXA_CERT_DIRECTORY`, if set and `true`, the server will do the following:
+1. Wait for a file system lock on `HEXA_CERT_DIRECTORY/hexa.lck`. This is in case multiple servers are starting at the same time.
+2. Check for a CA private key specified by `HEXA_CA_KEYFILE`. If not found, a new CA Keypair is generated using `HEXA_CERT_*` values.
+3. Using the value specified in `HEXA_SERVER_DNS_NAME` generate a server key pair to file paths `HEXA_SERVER_KEY_PATH` and `HEXA_SERVER_CERT`
+4. Release the lock and start the server.
+
+When the next server starts, it will use the existing key found in `HEXA_CA_KEYFILE` to generate its own key if necessary. 
+
+> [!Tip]
+> Each server should have a different filename specified for `HEXA_SERVER_KEY_PATH` and `HEXA_SERVER_CERT`. See `docker_compose.yml`
+> for an example of this.
 
 ## Enabling Go Applications with OPA and IDQL
 
