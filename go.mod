@@ -2,7 +2,7 @@ module github.com/hexa-org/policy-opa
 
 go 1.22
 
-toolchain go1.22.3
+toolchain go1.22.4
 
 // replace github.com/hexa-org/policy-mapper => ../policy-mapper
 
