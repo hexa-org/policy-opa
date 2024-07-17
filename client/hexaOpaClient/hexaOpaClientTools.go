@@ -147,6 +147,53 @@ func PrepareReqParams(r *http.Request, actionUris []string, resourceUris []strin
 	return &resp
 }
 
+func PrepareInputWithClaimsFunc(r *http.Request, claimsFunc func() *jwt.MapClaims, actionUris []string, resourceUris []string) *OpaInfo {
+	var inputData OpaInfo
+
+	inputData.Req = PrepareReqParams(r, actionUris, resourceUris)
+	subj, _ := PrepareSubjectInfo(r)
+	if claimsFunc != nil {
+		parseClaims := claimsFunc()
+		if parseClaims != nil {
+			claims := *parseClaims
+			subj.Type = "jwt"
+			subj.Sub, _ = claims.GetSubject()
+			subj.Issuer, _ = claims.GetIssuer()
+			subj.Audience, _ = claims.GetAudience()
+			iatNumeric, err := claims.GetIssuedAt()
+			if err == nil && iatNumeric != nil {
+				subj.IssuedAt = iatNumeric.UTC()
+			}
+			expNumeric, err := claims.GetExpirationTime()
+			if err == nil && expNumeric != nil {
+				subj.Expires = expNumeric.UTC()
+			}
+			nbfNumeric, err := claims.GetNotBefore()
+			if err == nil && nbfNumeric != nil {
+				subj.NotBefore = nbfNumeric.UTC()
+			}
+			subj.Claims = claims
+			email, ok := claims["email"].(string)
+			if ok {
+				subj.Sub = email
+			}
+			values, ok := claims["roles"].([]interface{})
+			if ok {
+				roles := make([]string, len(values))
+				for i, v := range values {
+					roles[i] = v.(string)
+				}
+				subj.Roles = roles
+			}
+		}
+
+	}
+
+	inputData.Subject = subj
+
+	return &inputData
+}
+
 // PrepareInput takes request information and prepares an "input" structure for use with HexaPolicy and OPA.
 func PrepareInput(r *http.Request, actionUris []string, resourceUris []string) *OpaInfo {
 	var inputData OpaInfo

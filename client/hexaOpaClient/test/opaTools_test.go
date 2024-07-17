@@ -17,7 +17,7 @@ import (
 
 func TestAnonymous(t *testing.T) {
 
-	server := utils.SetUpMockServer("verifymenow", "")
+	server := utils.SetUpMockServer("verifymenow", "", false)
 
 	resp, err := http.Get(fmt.Sprintf("http://%s/testpath?a=b&c=d", server.Addr))
 	if err != nil {
@@ -46,7 +46,7 @@ func TestAnonymous(t *testing.T) {
 
 func TestBasicAuth(t *testing.T) {
 
-	server := utils.SetUpMockServer("verifyme", "")
+	server := utils.SetUpMockServer("verifyme", "", false)
 
 	client := &http.Client{Timeout: time.Second * 10}
 
@@ -81,7 +81,7 @@ func TestBasicAuth(t *testing.T) {
 
 func TestJwtAuth(t *testing.T) {
 	key := "sercrethatmaycontainch@r$32chars!"
-	server := utils.SetUpMockServer(key, "")
+	server := utils.SetUpMockServer(key, "", false)
 
 	client := &http.Client{Timeout: time.Minute * 2}
 
@@ -124,7 +124,7 @@ func TestJwtAuth(t *testing.T) {
 
 func TestExpiredJwtAuth(t *testing.T) {
 	key := "sercrethatmaycontainch@r$32chars!"
-	server := utils.SetUpMockServer(key, "")
+	server := utils.SetUpMockServer(key, "", false)
 
 	client := &http.Client{Timeout: time.Minute * 2}
 
@@ -155,4 +155,48 @@ func TestExpiredJwtAuth(t *testing.T) {
 	assert.True(t, strings.HasPrefix(subInfo.Type, "Invalid"))
 
 	utils.StopServer(server)
+}
+
+func TestPrepareInputWithClaims(t *testing.T) {
+	key := "sercrethatmaycontainch@r$32chars!"
+	server := utils.SetUpMockServer(key, "", true)
+
+	client := &http.Client{Timeout: time.Minute * 2}
+
+	toknstr, err := utils.GenerateBearerToken(key, "TestUser", time.Now().Add(time.Minute*2))
+	if err != nil {
+		log.Fatalln(err)
+	}
+	authz := "Bearer " + toknstr
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s/testpath?a=b&c=d", server.Addr), nil)
+	if err != nil {
+		assert.Error(t, err)
+	}
+	req.Header.Set("Authorization", authz)
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+
+	var input hexaOpaClient.OpaInfo
+	err = json.Unmarshal(body, &input)
+	assert.NoError(t, err)
+	reqInfo := input.Req
+	subInfo := input.Subject
+
+	fmt.Println(string(body))
+	assert.True(t, strings.HasPrefix(reqInfo.ClientIp, "127.0.0.1:"))
+
+	assert.NotNil(t, reqInfo)
+	assert.NotNil(t, reqInfo.ClientIp)
+	reqTime := reqInfo.Time
+	assert.True(t, reqTime.Before(time.Now()))
+	assert.Equal(t, 3, len(reqInfo.Header))
+
+	assert.Equal(t, "jwt", subInfo.Type)
+	assert.Equal(t, "TestUser", subInfo.Sub)
+
+	utils.StopServer(server)
+
 }
