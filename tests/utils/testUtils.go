@@ -20,7 +20,7 @@ import (
 This is a mock server that simply returns the http request infor as an OPA input structure to the requesting client.
 Main purpose is to test how OpaInput works against http.Request
 */
-func SetUpMockServer(key string, path string) *http.Server {
+func SetUpMockServer(key string, path string, mockOidcMode bool) *http.Server {
 	err := os.Setenv("OPATOOLS_JWTVERIFYKEY", key)
 	if err != nil {
 		log.Fatalln(err)
@@ -33,8 +33,28 @@ func SetUpMockServer(key string, path string) *http.Server {
 	// Need to fix this so it will just serve anything for policy testing
 	server := CreateServer(listener.Addr().String(), func(router *mux.Router) {
 		router.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
-			input := opaTools.PrepareInput(r, []string{}, []string{"CanaryProfileService"})
+			var input *opaTools.OpaInfo
+			if mockOidcMode {
+				input = opaTools.PrepareInputWithClaimsFunc(r, func() *jwt.MapClaims {
+					claims := jwt.MapClaims{}
+					input = opaTools.PrepareInput(r, []string{}, []string{"CanaryProfileService"})
 
+					claims["sub"] = input.Subject.Sub
+					claims["iss"] = input.Subject.Issuer
+					claims["aud"] = input.Subject.Audience
+					claims["iat"] = float64(input.Subject.IssuedAt.Unix())
+					claims["exp"] = float64(input.Subject.Expires.Unix())
+					claims["nbf"] = float64(input.Subject.NotBefore.Unix())
+					claims["email"] = input.Subject.Sub
+					roles := make([]interface{}, 2)
+					roles[0] = "a"
+					roles[1] = "b"
+					claims["roles"] = roles
+					return &claims
+				}, []string{}, []string{"CanaryProfileService"})
+			} else {
+				input = opaTools.PrepareInput(r, []string{}, []string{"CanaryProfileService"})
+			}
 			marshal, _ := json.Marshal(input)
 			_, _ = w.Write(marshal)
 		}).Queries("a", "{a}", "c", "{c}")
@@ -47,12 +67,15 @@ func SetUpMockServer(key string, path string) *http.Server {
 }
 
 func GenerateBearerToken(key string, subject string, expires time.Time) (string, error) {
+	now := time.Now()
 	claims := &opaTools.HexaClaims{
 		&jwt.RegisteredClaims{
 			Issuer:    "testIssuer",
 			Audience:  []string{"testAudience"},
 			ExpiresAt: &jwt.NumericDate{expires},
 			Subject:   subject,
+			NotBefore: &jwt.NumericDate{now},
+			IssuedAt:  &jwt.NumericDate{now},
 		},
 		"bearer abc",
 	}

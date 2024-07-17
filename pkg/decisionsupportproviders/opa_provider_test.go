@@ -6,8 +6,10 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"os"
 	"testing"
 
+	"github.com/hexa-org/policy-mapper/pkg/oidcSupport"
 	opaTools "github.com/hexa-org/policy-opa/client/hexaOpaClient"
 	"github.com/hexa-org/policy-opa/pkg/decisionsupportproviders"
 	"github.com/stretchr/testify/assert"
@@ -15,11 +17,15 @@ import (
 )
 
 func TestOpaDecisionProvider_BuildInput(t *testing.T) {
+	_ = os.Setenv(oidcSupport.EnvOidcEnabled, "false")
+	oidcHander, _ := oidcSupport.NewOidcClientHandler(nil, nil)
 	provider := decisionsupportproviders.OpaDecisionProvider{
-		Principal: "sales@hexaindustries.io",
+		Principal:   "sales@hexaindustries.io",
+		OidcHandler: oidcHander,
 	}
 
 	req, _ := http.NewRequest("POST", "https://aDomain.com/noop", nil)
+
 	req.RequestURI = "/noop"
 	query, _ := provider.BuildInput(req, nil, nil)
 	casted := query.(*opaTools.OpaInfo)
@@ -32,7 +38,8 @@ func TestOpaDecisionProvider_BuildInput(t *testing.T) {
 func TestOpaDecisionProvider_BuildInput_RemovesQueryParams(t *testing.T) {
 	mockClient := new(MockClient)
 	mockClient.response = []byte("{\"result\":true}")
-	provider := decisionsupportproviders.OpaDecisionProvider{Client: mockClient, Url: "aUrl"}
+	oidcHander, _ := oidcSupport.NewOidcClientHandler(nil, nil)
+	provider := decisionsupportproviders.OpaDecisionProvider{Client: mockClient, Url: "aUrl", OidcHandler: oidcHander}
 
 	req, _ := http.NewRequest("GET", "http://aDomain.com/noop/?param=aParam", nil)
 	req.RequestURI = "/noop"
@@ -66,7 +73,8 @@ func TestOpaDecisionProvider_Allow(t *testing.T) {
 
 	resultBytes, _ := json.Marshal(results)
 	mockClient.response = resultBytes
-	provider := decisionsupportproviders.OpaDecisionProvider{Client: mockClient, Url: "aUrl"}
+	oidcHander, _ := oidcSupport.NewOidcClientHandler(nil, nil)
+	provider := decisionsupportproviders.OpaDecisionProvider{Client: mockClient, Url: "aUrl", OidcHandler: oidcHander}
 
 	req, _ := http.NewRequest("GET", "http://aDomain.com/noop", nil)
 	req.RequestURI = "/noop"
@@ -80,7 +88,8 @@ func TestOpaDecisionProvider_AllowWithRequestErr(t *testing.T) {
 	mockClient := new(MockClient)
 	mockClient.response = []byte("{\"result\":true}")
 	mockClient.err = errors.New("oops")
-	provider := decisionsupportproviders.OpaDecisionProvider{Client: mockClient, Url: "aUrl"}
+	oidcHander, _ := oidcSupport.NewOidcClientHandler(nil, nil)
+	provider := decisionsupportproviders.OpaDecisionProvider{Client: mockClient, Url: "aUrl", OidcHandler: oidcHander}
 
 	req, _ := http.NewRequest("GET", "http://aDomain.com/noop", nil)
 	req.RequestURI = "/noop"
@@ -94,7 +103,8 @@ func TestOpaDecisionProvider_AllowWithRequestErr(t *testing.T) {
 func TestOpaDecisionProvider_AllowWithResponseErr(t *testing.T) {
 	mockClient := new(MockClient)
 	mockClient.response = []byte("__bad__ {\"result\":true}")
-	provider := decisionsupportproviders.OpaDecisionProvider{Client: mockClient, Url: "aUrl"}
+	oidcHander, _ := oidcSupport.NewOidcClientHandler(nil, nil)
+	provider := decisionsupportproviders.OpaDecisionProvider{Client: mockClient, Url: "aUrl", OidcHandler: oidcHander}
 
 	req, _ := http.NewRequest("GET", "http://aDomain.com/noop", nil)
 	req.RequestURI = "/noop"

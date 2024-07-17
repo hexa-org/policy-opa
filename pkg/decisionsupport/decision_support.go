@@ -12,8 +12,8 @@ type DecisionSupport struct {
 	Provider     DecisionProvider
 	Unauthorized http.HandlerFunc
 	Skip         []string
-	ActionMap    map[string]string // ActionMap converts a path into an actionUri (map[path]=urivalue
-	ResourceMap  map[string]string // ResourceMap converts a path into an resourceUri (map[path]=urivalue
+	ActionMap    map[string]string // ActionMap converts a path into an actionUri (map[path]=uri value
+	ResourceMap  map[string]string // ResourceMap converts a path into an resourceUri (map[path]=uri value
 	ResourceId   string            // ResourceId if set is passed as part of buildInput overriding ResourceMap
 }
 
@@ -24,6 +24,10 @@ func (d *DecisionSupport) Middleware(next http.Handler) http.Handler {
 				next.ServeHTTP(w, r)
 				return
 			}
+		}
+		if r.RequestURI == "/" { // ignore the root
+			next.ServeHTTP(w, r)
+			return
 		}
 
 		var actionUris, resourceIds []string
@@ -44,6 +48,7 @@ func (d *DecisionSupport) Middleware(next http.Handler) http.Handler {
 
 		// log.Println("Building decision request info.")
 		input, inputErr := d.Provider.BuildInput(r, actionUris, resourceIds)
+		// input, inputErr := d.Provider.BuildInput(r, actionUris, resourceIds)
 		if inputErr != nil {
 			log.Error(fmt.Sprintf("Error building OPA input: %s", inputErr.Error()))
 			d.Unauthorized(w, r)
@@ -51,6 +56,7 @@ func (d *DecisionSupport) Middleware(next http.Handler) http.Handler {
 		}
 
 		// log.Println("Checking authorization.")
+
 		allow, err := d.Provider.Allow(input)
 		if !allow || err != nil {
 			d.Unauthorized(w, r)

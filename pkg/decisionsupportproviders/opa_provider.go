@@ -9,6 +9,8 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/golang-jwt/jwt/v5"
+	"github.com/hexa-org/policy-mapper/pkg/oidcSupport"
 	log "golang.org/x/exp/slog"
 
 	"github.com/hexa-org/policy-mapper/pkg/hexapolicy"
@@ -18,17 +20,34 @@ import (
 const EnvOpaDebug string = "HEXAOPA_DETAIL"
 
 type OpaDecisionProvider struct {
-	Client    HTTPClient
-	Url       string
-	Principal string
+	Client      HTTPClient
+	Url         string
+	Principal   string // Default principal
+	OidcHandler *oidcSupport.OidcClientHandler
 }
 
 func (o OpaDecisionProvider) BuildInput(r *http.Request, actionUris []string, resourceUris []string) (any interface{}, err error) {
-	info := opaTools.PrepareInput(r, actionUris, resourceUris)
-	if o.Principal != "" {
-		info.Subject.Sub = o.Principal
-	}
 
+	var info *opaTools.OpaInfo
+	if o.OidcHandler.Enabled {
+		sessionInfo, _ := o.OidcHandler.SessionHandler.Session(r)
+		info = opaTools.PrepareInputWithClaimsFunc(r, func() *jwt.MapClaims {
+			if sessionInfo == nil || sessionInfo.RawToken == "" {
+				return nil
+			}
+			claims := jwt.MapClaims{}
+			err := o.OidcHandler.ParseIdTokenClaims(sessionInfo.RawToken, &claims)
+			if err != nil {
+				return nil
+			}
+			return &claims
+		}, actionUris, resourceUris)
+	} else {
+		info = opaTools.PrepareInput(r, actionUris, resourceUris)
+		if o.Principal != "" {
+			info.Subject.Sub = o.Principal
+		}
+	}
 	return info, nil
 }
 

@@ -3,6 +3,7 @@ package decisionsupport_test
 import (
 	"errors"
 	"fmt"
+	"os"
 
 	"io"
 	"net"
@@ -11,6 +12,7 @@ import (
 
 	"github.com/gorilla/mux"
 	"github.com/hexa-org/policy-mapper/pkg/healthsupport"
+	"github.com/hexa-org/policy-mapper/pkg/oidcSupport"
 	"github.com/hexa-org/policy-mapper/pkg/websupport"
 	"github.com/hexa-org/policy-opa/pkg/decisionsupport"
 	"github.com/hexa-org/policy-opa/pkg/decisionsupportproviders"
@@ -19,12 +21,13 @@ import (
 )
 
 func TestMiddleware_allowed(t *testing.T) {
+
 	provider := decisionsupportproviders.MockDecisionProvider{Decision: true}
 	support := decisionsupport.DecisionSupport{Provider: &provider, Skip: []string{"/health", "/metrics"}}
 	provider.On("BuildInput").Once()
 	provider.On("Allow").Once()
 
-	server := startNewServer(support)
+	server := startNewServer(support, t)
 	defer websupport.Stop(server)
 
 	resp, _ := http.Get(fmt.Sprintf("http://%s/noop", server.Addr))
@@ -47,7 +50,7 @@ func TestMiddleware_notAllowed(t *testing.T) {
 		},
 	}
 
-	server := startNewServer(support)
+	server := startNewServer(support, t)
 	defer websupport.Stop(server)
 
 	resp, _ := http.Get(fmt.Sprintf("http://%s/noop", server.Addr))
@@ -69,7 +72,7 @@ func TestMiddleware_notAllowed_dueToBuildError(t *testing.T) {
 		},
 	}
 
-	server := startNewServer(support)
+	server := startNewServer(support, t)
 	defer websupport.Stop(server)
 
 	resp, _ := http.Get(fmt.Sprintf("http://%s/noop", server.Addr))
@@ -93,7 +96,7 @@ func TestMiddleware_notAllowed_dueToAllowError(t *testing.T) {
 		},
 	}
 
-	server := startNewServer(support)
+	server := startNewServer(support, t)
 	defer websupport.Stop(server)
 
 	resp, _ := http.Get(fmt.Sprintf("http://%s/noop", server.Addr))
@@ -108,7 +111,7 @@ func TestMiddleware_skips(t *testing.T) {
 
 	support := decisionsupport.DecisionSupport{Provider: &provider, Skip: []string{"/health", "/metrics"}}
 
-	server := startNewServer(support)
+	server := startNewServer(support, t)
 	defer websupport.Stop(server)
 
 	resp, _ := http.Get(fmt.Sprintf("http://%s/health", server.Addr))
@@ -123,9 +126,10 @@ func TestMiddleware_skips(t *testing.T) {
 
 // /
 
-func startNewServer(support decisionsupport.DecisionSupport) *http.Server {
+func startNewServer(support decisionsupport.DecisionSupport, t *testing.T) *http.Server {
 	listener, _ := net.Listen("tcp", "localhost:0")
 	server := websupport.Create(listener.Addr().String(), func(router *mux.Router) {
+		_ = os.Setenv(oidcSupport.EnvOidcEnabled, "false")
 		router.HandleFunc("/noop", func(w http.ResponseWriter, r *http.Request) {
 			_, _ = w.Write([]byte("success!"))
 		})

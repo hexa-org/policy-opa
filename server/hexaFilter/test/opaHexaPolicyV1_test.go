@@ -34,7 +34,7 @@ const dataV1Path = "bundle/bundle_test/data-V1.json"
 
 func TestIdqlBasic(t *testing.T) {
 
-	server := utils.SetUpMockServer("verifyme", "")
+	server := utils.SetUpMockServer("verifyme", "", false)
 
 	client := &http.Client{Timeout: time.Second * 10}
 
@@ -74,7 +74,7 @@ func TestIdqlBasic(t *testing.T) {
 
 func TestIdqlJwt(t *testing.T) {
 	key := "sercrethatmaycontainch@r$32chars!"
-	server := utils.SetUpMockServer(key, "")
+	server := utils.SetUpMockServer(key, "", false)
 
 	client := &http.Client{Timeout: time.Minute * 2}
 
@@ -117,7 +117,7 @@ func TestIdqlJwt(t *testing.T) {
 
 func TestIdqlIp(t *testing.T) {
 	key := "sercrethatmaycontainch@r$32chars!"
-	server := utils.SetUpMockServer(key, "")
+	server := utils.SetUpMockServer(key, "", false)
 
 	client := &http.Client{Timeout: time.Minute * 2}
 
@@ -160,7 +160,7 @@ a delete which should also be refused as it is not explicitly enabled.
 */
 func TestIdqlIpActions(t *testing.T) {
 	key := "sercrethatmaycontainch@r$32chars!"
-	server := utils.SetUpMockServer(key, "")
+	server := utils.SetUpMockServer(key, "", false)
 
 	client := &http.Client{Timeout: time.Minute * 2}
 
@@ -250,7 +250,7 @@ func TestIdqlIpActions(t *testing.T) {
 
 func TestIdqlMember(t *testing.T) {
 	key := "sercrethatmaycontainch@r$32chars!"
-	server := utils.SetUpMockServer(key, "")
+	server := utils.SetUpMockServer(key, "", false)
 	fmt.Println("\nGET Test with token and role")
 	client := &http.Client{Timeout: time.Minute * 2}
 
@@ -288,7 +288,7 @@ func TestIdqlMember(t *testing.T) {
 
 func TestIdqlRole(t *testing.T) {
 	key := "sercrethatmaycontainch@r$32chars!"
-	server := utils.SetUpMockServer(key, "")
+	server := utils.SetUpMockServer(key, "", false)
 	fmt.Println("\nGET Test with token and role")
 	client := &http.Client{Timeout: time.Minute * 2}
 
