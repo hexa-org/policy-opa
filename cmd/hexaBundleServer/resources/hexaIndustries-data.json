@@ -8,7 +8,7 @@
       },
       "actions": [
         {
-          "actionUri": "http:GET:/"
+          "actionUri": "http:GET:/dashboard"
         }
       ],
       "subject": {
@@ -33,9 +33,8 @@
       ],
       "subject": {
         "members": [
-          "anyauthenticated",
-          "sales@hexaindustries.io",
-          "marketing@hexaindustries.io"
+          "role:sales",
+          "role:marketing"
         ]
       },
       "object": {
@@ -57,7 +56,7 @@
       ],
       "subject": {
         "members": [
-          "accounting@hexaindustries.io"
+          "role:accounting"
         ]
       },
       "object": {
@@ -76,7 +75,7 @@
       ],
       "subject": {
         "members": [
-          "humanresources@hexaindustries.io"
+          "role:humanresources"
         ]
       },
       "object": {
