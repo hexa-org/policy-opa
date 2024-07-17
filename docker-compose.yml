@@ -8,10 +8,13 @@ services:
     ports:
       - "8889:8889"
     command: /app/hexaBundleServer
+    networks:
+      - hexa_network
     environment:
       PORT: 8889
       HEXA_TKN_DIRECTORY: "/home/certs"
       HEXA_CERT_DIRECTORY: "/home/certs"
+      HEXA_TLS_ENABLED: true
       HEXA_SERVER_CERT: "/home/certs/hexa-bundle-server-cert.pem"
       HEXA_SERVER_KEY_PATH: "/home/certs/hexa-bundle-server-key.pem"
       HEXA_SERVER_DNS_NAME: hexa-bundle-server
@@ -30,6 +33,8 @@ services:
     depends_on:
       - hexa-opaBundle-server
     command: /app/hexaOpa run --server --addr :8887 --tls-cert-file=/home/certs/hexaOpa-cert.pem --tls-private-key-file=/home/certs/hexaOpa-key.pem --log-level debug -c /home/config/config.yaml
+    networks:
+      - hexa_network
     environment:
       # These environment values are referenced in ./deployments/hexaOpaServer/config/config.yaml
       HEXA_CONFIG_URL: "https://hexa-bundle-server:8889"
@@ -69,16 +74,37 @@ services:
   demo-app:
     image: hexaopa
     container_name: hexa-industries-demo
+    hostname: demo.hexa.org
     ports:
       - "8886:8886"
     command: /app/hexaIndustriesDemo
     depends_on:
       - hexa-opa-sidecar
+    networks:
+      - hexa_network
     environment:
       PORT: 8886
       OPA_SERVER_URL: https://hexa-opa-sidecar:8887/v1/data/hexaPolicy
-      # HEXAOPA_DETAIL enables debug responses in console  notes&pretty or full&pretty
-      HEXAOPA_DETAIL: "notes&pretty"
+      # HEXAOPA_DETAIL enables debug responses in console  notes, fails, full, debug
+      HEXAOPA_DETAIL: "notes"
+      # HEXA_CA_CERT is used to trust self-signed TLS keys for hexa-opa-sidecar (OPA_SERVER_URL)
       HEXA_CA_CERT: "/home/certs/ca-cert.pem"
+      HEXA_CERT_DIRECTORY: "/home/certs"
+      HEXA_OIDC_ENABLED: true
+      HEXA_OIDC_CLIENT_ID: hexaclient
+      HEXA_OIDC_CLIENT_SECRET: "uuXVzfbqH635Ob0oTON1uboONUqasmTt"
+      HEXA_OIDC_PROVIDER_URL: "http://keycloak:8080/realms/Hexa-Orchestrator-Realm"
+      # If TLS enabled, OIDC redirect must be changed to https
+      HEXA_OIDC_REDIRECT_URL: "http://demo.hexa.org:8886/redirect"
+      HEXA_TLS_ENABLED: false
+      # Following only used when HEXA_TLS_ENABLED=true and auto generate keys enabled (default)
+      HEXA_SERVER_CERT: "/home/certs/server-hexademo-cert.pem"
+      HEXA_SERVER_KEY_PATH: "/home/certs/server-hexademo-key.pem"
+      HEXA_SERVER_DNS_NAME: "demo.hexa.org,localhost"
     volumes:
-      - "./.certs:/home/certs:ro"
+      - "./.certs:/home/certs"
+
+networks:
+  hexa_network:
+    name: hexa_shared_hexa_network
+    external: true
