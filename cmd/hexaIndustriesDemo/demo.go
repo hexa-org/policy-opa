@@ -6,18 +6,14 @@ import (
 	"net"
 	"net/http"
 	"os"
-	"path/filepath"
-	"runtime"
 
 	"github.com/hexa-org/policy-mapper/pkg/keysupport"
+	"github.com/hexa-org/policy-mapper/pkg/oidcSupport"
+	"github.com/hexa-org/policy-mapper/pkg/sessionSupport"
 	log "golang.org/x/exp/slog"
 
 	"github.com/gorilla/mux"
-	"github.com/gorilla/sessions"
 	"github.com/hexa-org/policy-mapper/pkg/websupport"
-	"github.com/hexa-org/policy-opa/cmd/hexaIndustriesDemo/amazonsupport"
-	"github.com/hexa-org/policy-opa/cmd/hexaIndustriesDemo/azuresupport"
-	"github.com/hexa-org/policy-opa/cmd/hexaIndustriesDemo/googlesupport"
 	"github.com/hexa-org/policy-opa/pkg/decisionsupport"
 
 	"github.com/hexa-org/policy-opa/pkg/decisionsupportproviders"
@@ -33,33 +29,21 @@ type HTTPClient interface {
 	Do(req *http.Request) (*http.Response, error)
 }
 
-func App(session *sessions.CookieStore, amazonConfig amazonsupport.AmazonCognitoConfiguration, client HTTPClient, opaUrl string, addr string, resourcesDirectory string) *http.Server {
-	basic := NewBasicApp(session, amazonConfig)
-	googleSupport := googlesupport.NewGoogleSupport(session)
-	amazonSupport := amazonsupport.NewAmazonSupport(client, amazonConfig, amazonsupport.AmazonCognitoClaimsParser{}, session)
-	azureSupport := azuresupport.NewAzureSupport(session)
-	provider := decisionsupportproviders.OpaDecisionProvider{Client: client, Url: opaUrl, Principal: "sales@hexaindustries.io"}
+func App(addr string) *http.Server {
+	session := sessionSupport.NewSessionManager()
 
-	actionMap := map[string]string{}
-	actionMap["/"] = "root"
-	actionMap["/sales"] = "sales"
-	actionMap["/accounting"] = "accounting"
-	actionMap["/marketing"] = "marketing"
-	actionMap["/humanresources"] = "humanresources"
-	opaSupport := decisionsupport.DecisionSupport{Provider: provider, Unauthorized: basic.unauthorized, Skip: []string{"/health", "/metrics", "/styles", "/images", "/bundle", "/favicon.ico"}, ActionMap: actionMap, ResourceId: "hexaIndustries"}
+	basic := NewBasicApp(session)
 	server := websupport.Create(addr, basic.loadHandlers(), websupport.Options{})
-	router := server.Handler.(*mux.Router)
-	router.Use(googleSupport.Middleware, amazonSupport.Middleware, azureSupport.Middleware, opaSupport.Middleware)
+
 	return server
 }
 
 type BasicApp struct {
-	session      *sessions.CookieStore
-	amazonConfig amazonsupport.AmazonCognitoConfiguration
+	session sessionSupport.SessionManager
 }
 
-func NewBasicApp(session *sessions.CookieStore, amazonConfig amazonsupport.AmazonCognitoConfiguration) BasicApp {
-	return BasicApp{session, amazonConfig}
+func NewBasicApp(session sessionSupport.SessionManager) BasicApp {
+	return BasicApp{session}
 }
 
 func (a *BasicApp) dashboard(writer http.ResponseWriter, req *http.Request) {
@@ -88,11 +72,49 @@ func (a *BasicApp) unauthorized(writer http.ResponseWriter, req *http.Request) {
 }
 
 func (a *BasicApp) loadHandlers() func(router *mux.Router) {
+
+	client := http.Client{}
+	keysupport.CheckCaInstalled(&client)
+	oidcHandler, err := oidcSupport.NewOidcClientHandler(a.session, &resources)
+	oidcHandler.MainPage = "/dashboard"
+	opaUrl := "https://0.0.0.0:8887/v1/data/hexaPolicy"
+	if found := os.Getenv("OPA_SERVER_URL"); found != "" {
+		opaUrl = found
+	}
+	log.Info(fmt.Sprintf("Using OPA PDP address %v", opaUrl))
+
+	actionMap := map[string]string{}
+	actionMap["/dashboard"] = "root"
+	actionMap["/sales"] = "sales"
+	actionMap["/accounting"] = "accounting"
+	actionMap["/marketing"] = "marketing"
+	actionMap["/humanresources"] = "humanresources"
+	provider := decisionsupportproviders.OpaDecisionProvider{Client: &client, Url: opaUrl, Principal: "sales@hexaindustries.io", OidcHandler: oidcHandler}
+	opaSupport := decisionsupport.DecisionSupport{
+		Provider:     provider,
+		Unauthorized: a.unauthorized,
+		Skip:         []string{"/authorize", "/login", "/logout", "/redirect", "/health", "/metrics", "/styles", "/images", "/bundle", "/favicon.ico"},
+		ActionMap:    actionMap,
+		ResourceId:   "hexaIndustries",
+	}
+
 	return func(router *mux.Router) {
-		router.HandleFunc("/", a.dashboard).Methods("GET")
-		router.HandleFunc("/sales", a.sales).Methods("GET")
-		router.HandleFunc("/accounting", a.accounting).Methods("GET")
-		router.HandleFunc("/humanresources", a.humanresources).Methods("GET")
+		oidcHandler.InitHandlers(router)
+		if err != nil {
+			log.Error(err.Error())
+			log.Warn("OIDC Login is disabled")
+		}
+		router.Use(opaSupport.Middleware)
+		if !oidcHandler.Enabled {
+			// Normally oidcHandler puts up a login page. However when disabled, just to to dashboard
+			router.HandleFunc("/", func(writer http.ResponseWriter, request *http.Request) {
+				http.Redirect(writer, request, "/dashboard", http.StatusTemporaryRedirect)
+			})
+		}
+		router.HandleFunc("/dashboard", oidcHandler.HandleSessionScope(a.dashboard, []string{"root"})).Methods("GET")
+		router.HandleFunc("/sales", oidcHandler.HandleSessionScope(a.sales, []string{"sales"})).Methods("GET")
+		router.HandleFunc("/accounting", oidcHandler.HandleSessionScope(a.accounting, []string{"accounting"})).Methods("GET")
+		router.HandleFunc("/humanresources", oidcHandler.HandleSessionScope(a.humanresources, []string{"accounting"})).Methods("GET")
 
 		fileServer := http.FileServer(http.FS(staticResources))
 		router.PathPrefix("/").Handler(addPrefix("resources/static", fileServer))
@@ -107,17 +129,14 @@ func addPrefix(prefix string, h http.Handler) http.Handler {
 }
 
 func (a *BasicApp) principalAndLogout(req *http.Request) websupport.Model {
-	session, err := a.session.Get(req, "session")
+	session, err := a.session.Session(req)
 	if err != nil {
 		return websupport.Model{Map: map[string]interface{}{}}
 	}
-	principal := session.Values["principal"]
-	if principal == nil || len(principal.([]string)) == 0 {
-		return websupport.Model{Map: map[string]interface{}{}}
-	}
+	principal := session.Email
+
 	return websupport.Model{Map: map[string]interface{}{
-		"provider_email": principal.([]string),
-		"logout":         session.Values["logout"].(string),
+		"provider_email": principal,
 	}}
 }
 
@@ -135,33 +154,20 @@ func newApp(addr string) (*http.Server, net.Listener) {
 	}
 	log.Debug(fmt.Sprintf("Found server host %v", addr))
 
-	opaUrl := "https://0.0.0.0:8887/v1/data/hexaPolicy"
-	if found := os.Getenv("OPA_SERVER_URL"); found != "" {
-		opaUrl = found
-	}
-	log.Info(fmt.Sprintf("Using OPA PDP address %v", opaUrl))
-
-	key := "super_private"
-	if found := os.Getenv("SESSION_KEY"); found != "" {
-		key = found
-	}
-	log.Info("Found sessions key.")
-
-	_, file, _, _ := runtime.Caller(0)
-	resourcesDirectory := filepath.Join(file, "../../../cmd/hexaIndustriesDemo/resources")
 	listener, _ := net.Listen("tcp", addr)
-	var session = sessions.NewCookieStore([]byte(os.Getenv(key)))
-	amazon := amazonsupport.AmazonCognitoConfiguration{
-		Region:               os.Getenv("AWS_REGION"),
-		Domain:               os.Getenv("AWS_COGNITO_USER_POOL_DOMAIN"),
-		RedirectUrl:          os.Getenv("AWS_COGNITO_DOMAIN_REDIRECT_URL"),
-		UserPoolId:           os.Getenv("AWS_COGNITO_USER_POOL_ID"),
-		UserPoolClientId:     os.Getenv("AWS_COGNITO_USER_POOL_CLIENT_ID"),
-		UserPoolClientSecret: os.Getenv("AWS_COGNITO_USER_POOL_CLIENT_SECRET"),
+
+	server := App(listener.Addr().String())
+
+	if websupport.IsTlsEnabled() {
+		keyConfig := keysupport.GetKeyConfig()
+		err := keyConfig.InitializeKeys()
+		if err != nil {
+			log.Error("Error initializing keys: " + err.Error())
+			panic(err)
+		}
+
+		websupport.WithTransportLayerSecurity(keyConfig.ServerCertPath, keyConfig.ServerKeyPath, server)
 	}
-	client := http.Client{}
-	keysupport.CheckCaInstalled(&client)
-	server := App(session, amazon, &client, opaUrl, listener.Addr().String(), resourcesDirectory)
 	return server, listener
 }
 

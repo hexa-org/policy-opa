@@ -155,3 +155,19 @@ main .side-nav {
 .card p strong {
     font-weight: 700;
 }
+
+.login {
+    border-radius: 10px;
+    padding: 1rem;
+
+    background: var(--gray);
+    color: white;
+    cursor: pointer;
+    border: solid;
+    font-size: inherit;
+
+    display: inline-block;
+    line-height: 2rem;
+    horiz-align: center;
+    vertical-align: middle;
+}

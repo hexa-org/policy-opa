@@ -1,4 +1,5 @@
 {{- define "base"}}
+    {{- $resource := index .Map "resource"}}
     <!doctype html>
     <html lang="en">
     <head>
@@ -13,12 +14,13 @@
     <nav class="top-nav top-bar">
         <h1 class="hexa-title">Hexa Industries</h1>
         {{- $email := index .Map "provider_email"}}
-        {{- $logout := index .Map "logout"}}
+        {{- $logout := "/logout"}}
         <div class="gray">
-            group:sales@hexaindustries.io
             {{- if $email }}
-                | {{$email}}
+                {{$email}}
                 | <a href="{{$logout}}">Log out</a>
+            {{- else}}
+                Logged Out
             {{- end}}
         </div>
     </nav>
@@ -29,9 +31,10 @@
     </header>
     <main>
         <div class="side-nav">
+            {{- if (ne $resource "login") }}
             <ul>
                 <li>
-                    <a href="/">Dashboard</a>
+                    <a href="/dashboard">Dashboard</a>
                 </li>
                 <li>
                     <a href="/sales">Sales</a>
@@ -51,6 +54,7 @@
                     {{- end}}
                 </li>
             </ul>
+            {{- end}}
         </div>
         <div class="content">
             {{- template "main" .}}
