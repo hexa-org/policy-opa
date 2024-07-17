@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/hexa-org/policy-mapper/pkg/keysupport"
-	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/config"
+	"github.com/hexa-org/policy-opa/pkg/hexaConstants"
 	"github.com/hexa-org/policy-opa/server/conditionEvaluator"
 	"github.com/hexa-org/policy-opa/server/hexaFilter"
 	"github.com/open-policy-agent/opa/ast"
@@ -19,7 +19,7 @@ import (
 func main() {
 	// Configure JSON logger which is the normal OPA log format.
 	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
-	logger.Info("Hexa OPA Server starting...", "version", config.HexaAuthZenVersion)
+	logger.Info("Hexa OPA Server starting...", "version", hexaConstants.HexaOpaVersion, "hexaPolicy.rego", hexaConstants.HexaRegoVersion)
 
 	logger.Info("registering plugin " + hexaFilter.PluginName)
 	rego.RegisterBuiltin2(
@@ -46,7 +46,7 @@ func main() {
 
 	// Read the hexa environment variables and auto-gen keys if necessary
 	keyConfig := keysupport.GetKeyConfig()
-	keyConfig.InitializeKeys()
+	_ = keyConfig.InitializeKeys()
 	keysupport.CheckCaInstalled(nil) // If HEXA_CA_CERT is defined, the root will be installed.
 	// Start OPA Server
 	if err := cmd.RootCommand.Execute(); err != nil {

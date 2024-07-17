@@ -10,6 +10,7 @@ import (
 	"github.com/hexa-org/policy-mapper/pkg/keysupport"
 	"github.com/hexa-org/policy-mapper/pkg/oidcSupport"
 	"github.com/hexa-org/policy-mapper/pkg/sessionSupport"
+	"github.com/hexa-org/policy-opa/pkg/hexaConstants"
 	log "golang.org/x/exp/slog"
 
 	"github.com/gorilla/mux"
@@ -172,6 +173,6 @@ func newApp(addr string) (*http.Server, net.Listener) {
 }
 
 func main() {
-	log.Info("Hexa Industries Demo Server starting...", "version", "0.65.2")
+	log.Info("Hexa Industries Demo Server starting...", "version", hexaConstants.HexaOpaVersion)
 	websupport.Start(newApp("0.0.0.0:8886"))
 }

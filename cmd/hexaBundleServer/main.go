@@ -16,6 +16,7 @@ import (
 
 	"github.com/hexa-org/policy-mapper/pkg/keysupport"
 	"github.com/hexa-org/policy-mapper/pkg/oauth2support"
+	"github.com/hexa-org/policy-opa/pkg/hexaConstants"
 	log "golang.org/x/exp/slog"
 
 	"github.com/gorilla/mux"
@@ -185,7 +186,7 @@ func newApp(addr string) (*http.Server, net.Listener) {
 }
 
 func main() {
-	log.Info("Hexa OPA Bundle Server starting...", "version", "0.65.2")
+	log.Info("Hexa OPA Bundle Server starting...", "version", hexaConstants.HexaOpaVersion)
 	app, listener := newApp("0.0.0.0:8889")
 	websupport.Start(app, listener)
 }

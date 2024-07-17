@@ -3,10 +3,12 @@ package config
 import (
 	"log"
 	"os"
+
+	"github.com/hexa-org/policy-opa/pkg/hexaConstants"
 )
 
 const (
-	HexaAuthZenVersion            string = "0.65.2"
+	HexaAuthZenVersion            string = hexaConstants.HexaOpaVersion
 	EnvAuthUserPipFile            string = "AUTHZEN_USERPIP_FILE"
 	EnvBundleDir                  string = "AUTHZEN_BUNDLE_DIR"
 	EndpointAuthzenSingleDecision string = "/access/v1/evaluation"
