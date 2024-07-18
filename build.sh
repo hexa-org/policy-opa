@@ -62,7 +62,7 @@ CGO_ENABLED=0 GOOS=linux go build -o ./hexaIndustriesDemo cmd/hexaIndustriesDemo
 echo ""
 
 echo "* Building hexaKeyTool ..."
-go build -o ./hexaKeyTool cmd/hexaKeyTool/main.go
+go build -o ./hexakey cmd/hexakey/main.go
 echo ""
 
 echo "* building docker container image ($tag)..."

@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 
 	"github.com/hexa-org/policy-mapper/providers/openpolicyagent"
 	infoModel2 "github.com/hexa-org/policy-opa/api/infoModel"
@@ -47,7 +48,9 @@ func NewDecisionHandler() *DecisionHandler {
 }
 
 func createInitialBundle(bundlePath string) {
-	dataBytes, err := os.ReadFile(config.BaseAuthZenPolicy)
+	_, file, _, _ := runtime.Caller(0)
+	basePolicy := filepath.Join(filepath.Dir(file), config.BaseAuthZenPolicy)
+	dataBytes, err := os.ReadFile(basePolicy)
 	if err != nil {
 		config.ServerLog.Fatalf("unable to read default Authzen Policy: %s", err)
 	}
