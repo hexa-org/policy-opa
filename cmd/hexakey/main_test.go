@@ -29,7 +29,9 @@ func TestNothing(t *testing.T) {
 func TestTls(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "hexakey-*")
 	assert.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func(path string) {
+		_ = os.RemoveAll(path)
+	}(tempDir)
 	args := map[string]string{"type": "tls", "dir": tempDir}
 	res := execArgs(args)
 	fmt.Println(res)
@@ -41,7 +43,9 @@ func TestTls(t *testing.T) {
 func TestToken(t *testing.T) {
 	tempDir, err := os.MkdirTemp("", "hexakey-*")
 	assert.NoError(t, err)
-	defer os.RemoveAll(tempDir)
+	defer func(path string) {
+		_ = os.RemoveAll(path)
+	}(tempDir)
 	args := map[string]string{"type": "jwt", "action": "init", "dir": tempDir}
 	res := execArgs(args)
 	assert.Contains(t, res, fmt.Sprintf("Token public and private keys generated in %s", tempDir))
@@ -67,7 +71,9 @@ func TestToken(t *testing.T) {
 
 func TestTokenNeg(t *testing.T) {
 	tempDir, _ := os.MkdirTemp("", "hexakey-*")
-	defer os.RemoveAll(tempDir)
+	defer func(path string) {
+		_ = os.RemoveAll(path)
+	}(tempDir)
 
 	// bad action arg
 	args := map[string]string{"type": "jwt", "action": "token", "dir": tempDir, "scopes": "bundle,root", "mail": "test@example.com"}
@@ -124,9 +130,9 @@ func execArgs(args map[string]string) string {
 
 	*/
 	os.Stdout = old
-	w.Close()
+	_ = w.Close()
 	out, _ := io.ReadAll(r)
-	r.Close()
+	_ = r.Close()
 
 	// output := <-outChan
 	// close(outChan)
@@ -141,6 +147,6 @@ func resetFlags() {
 		if strings.Contains(f.Name, "test") {
 			return
 		}
-		f.Value.Set(f.DefValue)
+		_ = f.Value.Set(f.DefValue)
 	})
 }

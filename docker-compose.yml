@@ -62,6 +62,7 @@ services:
       HEXA_TKN_DIRECTORY: "/home/certs"
       HEXA_TKN_MODE: "BUNDLE"
       HEXA_TKN_ISSUER: "hexa-authzen"
+      HEXA_TLS_ENABLED: false
       HEXA_CERT_DIRECTORY: "/home/certs"
       HEXA_SERVER_CERT: "/home/certs/authzen-cert.pem"
       HEXA_SERVER_KEY_PATH: "/home/certs/authzen-key.pem"
