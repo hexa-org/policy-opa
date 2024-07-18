@@ -2,12 +2,11 @@ module github.com/hexa-org/policy-opa
 
 go 1.22
 
-toolchain go1.22.4
+toolchain go1.22.5
 
 require (
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/gorilla/mux v1.8.1
-	github.com/gorilla/sessions v1.3.0
 	github.com/hexa-org/policy-mapper v0.6.15
 	github.com/open-policy-agent/opa v0.66.0
 	github.com/stretchr/testify v1.9.0
@@ -79,7 +78,6 @@ require (
 	github.com/google/s2a-go v0.1.7 // indirect
 	github.com/google/uuid v1.6.0
 	github.com/googleapis/enterprise-certificate-proxy v0.3.2 // indirect
-	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.20.0 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/hhsnopek/etag v0.0.0-20171206181245-aea95f647346 // indirect
