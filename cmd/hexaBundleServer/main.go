@@ -182,6 +182,17 @@ func newApp(addr string) (*http.Server, net.Listener) {
 
 	app := App(listener.Addr().String(), bundleDir)
 
+	if websupport.IsTlsEnabled() {
+		keyConfig := keysupport.GetKeyConfig()
+		err := keyConfig.InitializeKeys()
+		if err != nil {
+			log.Error("Error initializing keys: " + err.Error())
+			panic(err)
+		}
+
+		websupport.WithTransportLayerSecurity(keyConfig.ServerCertPath, keyConfig.ServerKeyPath, app)
+	}
+
 	return app, listener
 }
 

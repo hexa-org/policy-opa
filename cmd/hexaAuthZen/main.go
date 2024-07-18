@@ -7,8 +7,11 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/hexa-org/policy-mapper/pkg/keysupport"
+	"github.com/hexa-org/policy-mapper/pkg/websupport"
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/authZenApp"
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/config"
+	log "golang.org/x/exp/slog"
 )
 
 var mLog = config.ServerLog
@@ -27,6 +30,17 @@ func main() {
 	// listener, _ := net.Dial("tcp", addr)
 
 	az := authZenApp.StartServer(":"+port, "")
+
+	if websupport.IsTlsEnabled() {
+		keyConfig := keysupport.GetKeyConfig()
+		err := keyConfig.InitializeKeys()
+		if err != nil {
+			log.Error("Error initializing keys: " + err.Error())
+			panic(err)
+		}
+
+		websupport.WithTransportLayerSecurity(keyConfig.ServerCertPath, keyConfig.ServerKeyPath, az.Server)
+	}
 	err := az.Server.ListenAndServe()
 	if err != nil {
 		mLog.Fatal(err.Error())
