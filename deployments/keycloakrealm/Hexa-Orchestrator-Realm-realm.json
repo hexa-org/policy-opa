@@ -565,7 +565,7 @@
     "alwaysDisplayInConsole" : false,
     "clientAuthenticatorType" : "client-secret",
     "secret" : "uuXVzfbqH635Ob0oTON1uboONUqasmTt",
-    "redirectUris" : [ "http://localhost:8886/redirect", "http://localhost:8884/redirect", "http://demo.hexa.org:8886/redirect", "http://admin.hexa.org:8884/redirect" ],
+    "redirectUris" : [ "http://localhost:8886/redirect", "http://localhost:8884/redirect", "https://admin.hexa.org:8884/redirect", "http://demo.hexa.org:8886/redirect", "http://admin.hexa.org:8884/redirect", "https://demo.hexa.org:8886/redirect" ],
     "webOrigins" : [ "*" ],
     "notBefore" : 0,
     "bearerOnly" : false,
