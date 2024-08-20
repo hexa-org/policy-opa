@@ -155,6 +155,7 @@ func (a *BundleApp) loadHandlers(jwtAuthorizer *oauth2support.ResourceJwtAuthori
 	return func(router *mux.Router) {
 		router.HandleFunc("/bundles/bundle.tar.gz", oauth2support.JwtAuthenticationHandler(a.download, jwtAuthorizer, []string{tokensupport.ScopeBundle, tokensupport.ScopeAdmin})).Methods("GET")
 		router.HandleFunc("/bundles", oauth2support.JwtAuthenticationHandler(a.upload, jwtAuthorizer, []string{tokensupport.ScopeBundle, tokensupport.ScopeAdmin})).Methods("POST")
+		router.HandleFunc("/bundles/bundle.tar.gz", oauth2support.JwtAuthenticationHandler(a.upload, jwtAuthorizer, []string{tokensupport.ScopeBundle, tokensupport.ScopeAdmin})).Methods("POST")
 		router.HandleFunc("/reset", oauth2support.JwtAuthenticationHandler(a.reset, jwtAuthorizer, []string{tokensupport.ScopeAdmin})).Methods("GET")
 	}
 }

@@ -120,9 +120,22 @@ func TestUpload(t *testing.T) {
 	_, _ = formFile.Write(buffer.Bytes())
 	_ = writer.Close()
 
+	// test to /bundles
 	contentType := writer.FormDataContentType()
 	response, _ := client.Post(fmt.Sprintf("https://%s/bundles", app.Addr), contentType, buf)
 	assert.Equal(t, http.StatusCreated, response.StatusCode)
+
+	// repeat test to /bundles/bundle.tar.gz  (sdk uses this)
+	buf = new(bytes.Buffer)
+	writer = multipart.NewWriter(buf)
+	_ = compressionsupport.Gzip(&buffer, tar)
+	formFile, _ = writer.CreateFormFile("bundle", "bundle.tar.gz")
+	_, _ = formFile.Write(buffer.Bytes())
+	_ = writer.Close()
+	contentType = writer.FormDataContentType()
+
+	response2, _ := client.Post(fmt.Sprintf("https://%s/bundles/bundle.tar.gz", app.Addr), contentType, buf)
+	assert.Equal(t, http.StatusCreated, response2.StatusCode)
 
 	_, _ = client.Get(fmt.Sprintf("http://%s/reset", app.Addr))
 	websupport.Stop(app)
