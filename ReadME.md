@@ -238,25 +238,17 @@ Example IDQL with Condition Statement:
 ```json
 {
   "meta": {
-    "version": "0.6",
+    "version": "0.7",
     "date": "2021-08-01 21:32:44 UTC",
     "description": "Test that allows jwt authenticated specific subject *and* has a role",
     "policyId": "TestJwtRole"
   },
-  "subject": {
-    "members" : ["user:BaSicBob"]
-  },
+  "subject": ["user:BaSicBob"],
   "actions": [
-    {
-      "actionUri": "ietf:http:POST:/testpath*"
-    },
-    {
-      "actionUri": "ietf:http:GET:/testpath*"
-    }
+    "http:POST:/testpath*",
+    "http:GET:/testpath*"
   ],
-  "object": {
-    "resource_id": "CanaryProfileService"
-  },
+  "object": "CanaryProfileService",
   "condition": {
     "rule": "subject.type eq jwt and subject.iss eq testIssuer and subject.aud co testAudience and subject.roles co abc",
     "action": "allow"
@@ -308,7 +300,7 @@ For any value above, the Hexa Filter extension process these condition variables
 
 ## Writing IDQL Policy for the HexaOpa
 
-In OPA Rego, IDQL policy is submitted in a JSON format as data input to OPA servers. The [hexaPolicy rego package](server/hexaFilter/test/bundle/hexaPolicyV2.rego) is then used
+In OPA Rego, IDQL policy is submitted in a JSON format as data input to OPA servers. The [hexaPolicy rego package](https://raw.githubusercontent.com/hexa-org/policy-mapper/main/providers/openpolicyagent/resources/bundles/bundle/hexaPolicy.rego) is then used
 to compare input (previous section) with IDQL data to determine if access is `allow`ed. 
 
 The following is a template for a typical IDQL policy. The values in brackets are described below:
@@ -320,23 +312,13 @@ The following is a template for a typical IDQL policy. The values in brackets ar
     "description": "<descriptive text>",
     "policyId": "<policyId>"
   },
-  "subject": {
-    "members": [
-      "<type>:<member>"
-    ]
-  },
-  "actions": [
-    {
-      "actionUri": "<actionUri>"
-    }
-  ],
+  "subject": [ "<type>:<member>", ... ],
+  "actions": [ "<actionUri>", ... ],
   "condition": {
     "rule": "<idql-filter>",
     "action": "<allow|deny>"
   },
-  "object": {
-    "resource_id": "<app-resource-id>"
-  }
+  "object": "<app-resource-id>"
 }
 ```
 
@@ -344,7 +326,7 @@ IDQL field values, format and how to use:
 
 | Field           | Format                                                                       | Use                                                    | Description                                                                                                                                                                                                                                                                                                                                                                                                                                 |
 |-----------------|------------------------------------------------------------------------------|--------------------------------------------------------|---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------|
-| idql_version    | n.n (currently 0.6.9)                                                        | Informational                                          | Typically reflects the current IDQL version from [hexa-org/policy-mapper](https://github.com/hexa-org/policy-mapper).                                                                                                                                                                                                                                                                                                                       |
+| idql_version    | n.n (currently 0.7)                                                          | Informational                                          | Typically reflects the current IDQL version from [hexa-org/policy-mapper](https://github.com/hexa-org/policy-mapper).                                                                                                                                                                                                                                                                                                                       |
 | policyId        | string                                                                       | Required - OPA returns policy ids in `allowSet`        | Used to identify which IDQL policy was matched in rego                                                                                                                                                                                                                                                                                                                                                                                      |
 | type:member     | multi-value string                                                           | Matches input subjects                                 | Types: `any`, `anyAuthenticated`, `user:`username/sub, `domain:`domain suffix, `role:`role name, `net:`cidr                                                                                                                                                                                                                                                                                                                                 | 
 |                 |                                                                              |                                                        | `any` means any user or anonymous subject<br/>`anyAuthenticated` means any authenticated subject<br/>`user` matches `input.subject.sub` (e.g. `basicbob@hexa.org`)<br/>`domain` matches the suffix of `input.subject.sub` (e.g. `@hexa.org`)<br/>`role` matches `input.subject.roles` (e.g. `admin`)<br/>`net` matches a [CIDR](https://en.wikipedia.org/wiki/Classless_Inter-Domain_Routing) with `input.req.ip` (e.g. `198.51.100.14/24`) |

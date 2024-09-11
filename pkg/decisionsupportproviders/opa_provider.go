@@ -64,13 +64,19 @@ type ScopeObligation struct {
 	Scope    hexapolicy.ScopeInfo `json:"scope"`
 }
 
+type PolicyParseError struct {
+	PolicyId string `json:"policyId"`
+	Error    string `json:"error"`
+}
+
 type HexaOpaResult struct {
-	ActionRights      []string          `json:"action_rights"`
-	AllowSet          []string          `json:"allow_set"`
-	Allow             bool              `json:"allow"`
-	PoliciesEvaluated int               `json:"policies_evaluated"`
-	HexaRegoVersion   string            `json:"hexa_rego_version"`
-	Scopes            []ScopeObligation `json:"scopes"`
+	ActionRights      []string           `json:"action_rights"`
+	AllowSet          []string           `json:"allow_set"`
+	Allow             bool               `json:"allow"`
+	PoliciesEvaluated int                `json:"policies_evaluated"`
+	HexaRegoVersion   string             `json:"hexa_rego_version"`
+	Scopes            []ScopeObligation  `json:"scopes,omitempty"`
+	PolicyErrors      []PolicyParseError `json:"error_idql,omitempty"`
 }
 
 type OpaResponse struct {

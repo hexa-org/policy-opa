@@ -2,7 +2,6 @@ package test_test
 
 import (
 	"bytes"
-	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,17 +9,13 @@ import (
 	"net/http"
 	"os"
 
-	"github.com/hexa-org/policy-opa/server/conditionEvaluator"
-	"github.com/hexa-org/policy-opa/server/hexaFilter"
+	"github.com/hexa-org/policy-opa/api/infoModel"
+	"github.com/hexa-org/policy-opa/pkg/bundleTestSupport"
+	"github.com/hexa-org/policy-opa/pkg/decisionsupportproviders"
+	"github.com/hexa-org/policy-opa/server/opaHandler"
 	"github.com/hexa-org/policy-opa/tests/utils"
-	"github.com/open-policy-agent/opa/ast"
-	"github.com/open-policy-agent/opa/rego"
-	"github.com/open-policy-agent/opa/storage/inmem"
-	"github.com/open-policy-agent/opa/types"
-	"github.com/open-policy-agent/opa/util"
 	"github.com/stretchr/testify/assert"
 
-	"strings"
 	"testing"
 	"time"
 )
@@ -29,7 +24,6 @@ import (
 This test suite tests Hexa IDQL Support with OPA which is implemented in Rego (bundle/hexaPolicyV2.rego)
 */
 
-const regoV1Path = "bundle/hexaPolicyV2.rego"
 const dataV1Path = "bundle/bundle_test/data-V1.json"
 
 func TestIdqlBasic(t *testing.T) {
@@ -52,16 +46,12 @@ func TestIdqlBasic(t *testing.T) {
 	inputStr := string(body)
 	fmt.Println("input = " + inputStr)
 
-	results := RunRego(body, regoV1Path, dataV1Path)
+	results := RunRego(t, body, dataV1Path)
 	if results == nil {
 		log.Fatalln("Received nil OPA results!")
 	}
 
-	if results == nil {
-		log.Fatalln("Received nil OPA results!")
-	}
-
-	allowSet, _ := ProcessResults(results)
+	allowSet, _ := ProcessResults(t, results)
 
 	assert.Contains(t, allowSet, "TestBasicCanary")          // This policy has no codnition
 	assert.Contains(t, allowSet, "TestBasicCanaryCondition") // THis policy matches on ip sw 127
@@ -96,18 +86,14 @@ func TestIdqlJwt(t *testing.T) {
 	inputStr := string(body)
 	fmt.Println("input = " + inputStr)
 
-	results := RunRego(body, regoV1Path, dataV1Path)
-	if results == nil {
-		log.Fatalln("Received nil OPA results!")
-	}
-
+	results := RunRego(t, body, dataV1Path)
 	if results == nil {
 		log.Fatalln("Received nil OPA results!")
 	}
 
 	fmt.Println("Expecting: TestIPMaskCanary, TestIPMaskCanaryNotDelete, TestJwtCanary, TestJwtMember")
 
-	allowSet, _ := ProcessResults(results)
+	allowSet, _ := ProcessResults(t, results)
 	assert.True(t, len(allowSet) == 4, "confirm 4 matches")
 	assert.Contains(t, allowSet, "TestJwtCanary")
 	assert.Contains(t, allowSet, "TestJwtMember")
@@ -134,7 +120,7 @@ func TestIdqlIp(t *testing.T) {
 	inputStr := string(body)
 	fmt.Println("input = " + inputStr)
 
-	results := RunRego(body, regoV1Path, dataV1Path)
+	results := RunRego(t, body, dataV1Path)
 	if results == nil {
 		log.Fatalln("Received nil OPA results!")
 	}
@@ -144,7 +130,7 @@ func TestIdqlIp(t *testing.T) {
 		decisions enumerated for a total of 6 (create,get, and not edit)
 	*/
 
-	allowSet, actionRights := ProcessResults(results)
+	allowSet, actionRights := ProcessResults(t, results)
 
 	assert.Equal(t, 6, len(actionRights))
 	assert.Equal(t, 2, len(allowSet))
@@ -180,12 +166,12 @@ func TestIdqlIpActions(t *testing.T) {
 	inputStr := string(body)
 	fmt.Println("input = " + inputStr)
 
-	results := RunRego(body, regoV1Path, dataV1Path)
+	results := RunRego(t, body, dataV1Path)
 	if results == nil {
 		log.Fatalln("Received nil OPA results!")
 	}
 
-	allowSet, actionRights := ProcessResults(results)
+	allowSet, actionRights := ProcessResults(t, results)
 
 	assert.Equal(t, 12, len(actionRights))
 	assert.Equal(t, 4, len(allowSet))
@@ -208,12 +194,12 @@ func TestIdqlIpActions(t *testing.T) {
 	inputStr = string(body)
 	fmt.Println("input = " + inputStr)
 
-	results = RunRego(body, regoV1Path, dataV1Path)
+	results = RunRego(t, body, dataV1Path)
 	if results == nil {
 		log.Fatalln("Received nil OPA results!")
 	}
 
-	allowSet, actionRights = ProcessResults(results)
+	allowSet, actionRights = ProcessResults(t, results)
 
 	assert.Equal(t, 6, len(actionRights))
 	assert.Equal(t, 2, len(allowSet))
@@ -235,12 +221,12 @@ func TestIdqlIpActions(t *testing.T) {
 	inputStr = string(body)
 	fmt.Println("input = " + inputStr)
 
-	results = RunRego(body, regoV1Path, dataV1Path)
+	results = RunRego(t, body, dataV1Path)
 	if results == nil {
 		log.Fatalln("Received nil OPA results!")
 	}
 
-	allowSet, actionRights = ProcessResults(results)
+	allowSet, actionRights = ProcessResults(t, results)
 
 	assert.Equal(t, 0, len(actionRights))
 	assert.Equal(t, 0, len(allowSet))
@@ -272,12 +258,12 @@ func TestIdqlMember(t *testing.T) {
 	inputStr := string(body)
 	fmt.Println("input = " + inputStr)
 
-	results := RunRego(body, regoV1Path, dataV1Path)
+	results := RunRego(t, body, dataV1Path)
 	if results == nil {
 		log.Fatalln("Received nil OPA results!")
 	}
 
-	allowSet, actionRights := ProcessResults(results)
+	allowSet, actionRights := ProcessResults(t, results)
 
 	assert.Equal(t, 12, len(actionRights))
 	assert.Equal(t, 4, len(allowSet))
@@ -310,12 +296,12 @@ func TestIdqlRole(t *testing.T) {
 	inputStr := string(body)
 	fmt.Println("input = " + inputStr)
 
-	results := RunRego(body, regoV1Path, dataV1Path)
+	results := RunRego(t, body, dataV1Path)
 	if results == nil {
 		log.Fatalln("Received nil OPA results!")
 	}
 
-	allowSet, actionRights := ProcessResults(results)
+	allowSet, actionRights := ProcessResults(t, results)
 
 	assert.Equal(t, 14, len(actionRights))
 	assert.Equal(t, 5, len(allowSet))
@@ -325,100 +311,91 @@ func TestIdqlRole(t *testing.T) {
 	utils.StopServer(server)
 }
 
-func RunRego(inputByte []byte, regoPath string, dataPath string) rego.ResultSet {
-	ctx := context.Background()
-
-	regoBytes, err := os.ReadFile(regoPath)
-	if err != nil {
-		log.Fatalln("Error reading rego file: " + err.Error())
-	}
-	regoString := string(regoBytes)
+func RunRego(t *testing.T, inputByte []byte, dataPath string) *decisionsupportproviders.HexaOpaResult {
+	t.Helper()
 
 	dataBytes, err := os.ReadFile(dataPath)
 	if err != nil {
-		log.Fatalln("Error reading data file: " + err.Error())
+		assert.Fail(t, "error reading data file: "+err.Error())
 	}
-	var dataJson map[string]interface{}
-	err = util.UnmarshalJSON(dataBytes, &dataJson)
-	if err != nil {
-		log.Fatalln("Error parsing data file: " + err.Error())
-	}
-	store := inmem.NewFromObject(dataJson)
 
-	var input map[string]interface{}
+	bundleDir := bundleTestSupport.InitTestBundlesDir(dataBytes)
+	defer func(path string) {
+		err := os.RemoveAll(path)
+		if err != nil {
+			t.Error("Failed to clean up after test: " + err.Error())
+		}
+	}(bundleDir)
+
+	regoHandler := opaHandler.NewRegoHandler(bundleDir)
+
+	var input infoModel.AzInfo
 	err = json.Unmarshal(inputByte, &input)
 	if err != nil {
-		log.Fatalln("Error parsing input data: " + err.Error())
+		assert.Fail(t, "Error parsing input data: "+err.Error())
 	}
-	regoHandle := rego.New(
-		rego.EnablePrintStatements(true),
-		rego.Query("data.hexaPolicy"),
-		rego.Package("hexaPolicy"),
-		rego.Module("bundle/hexaPolicyV2.rego", regoString),
-		rego.Input(&input),
-		rego.Store(store),
-		rego.Function2(
-			&rego.Function{
-				Name:             hexaFilter.PluginName,
-				Decl:             types.NewFunction(types.Args(types.A, types.S), types.S),
-				Memoize:          true,
-				Nondeterministic: true,
-			},
-			func(_ rego.BuiltinContext, a, b *ast.Term) (*ast.Term, error) {
 
-				var expression, input string
-
-				if err := ast.As(a.Value, &expression); err != nil {
-					return nil, err
-				}
-				// expression = a.Value.String()
-				input = b.Value.String()
-
-				res, err := conditionEvaluator.Evaluate(expression, input)
-
-				return ast.BooleanTerm(res), err
-
-			}),
-		// rego.Trace(true),
-	)
-
-	resultSet, err := regoHandle.Eval(ctx)
+	results, err := regoHandler.Evaluate(input)
 	if err != nil {
-		log.Fatalln("Error evaluating rego: " + err.Error())
+		assert.Fail(t, "Error evaluating policy: "+err.Error())
 	}
 
-	// rego.PrintTraceWithLocation(os.Stdout, regoHandle)
+	return regoHandler.ProcessResults(results)
+	/*
+	   regoHandle := rego.New(
+	       rego.EnablePrintStatements(true),
+	       rego.Query("data.hexaPolicy"),
+	       rego.Package("hexaPolicy"),
+	       rego.LoadBundle(bundleDir),
+	       rego.Input(&input),
+	       rego.Function2(
+	           &rego.Function{
+	               Name:             hexaFilter.PluginName,
+	               Decl:             types.NewFunction(types.Args(types.A, types.S), types.S),
+	               Memoize:          true,
+	               Nondeterministic: true,
+	           },
+	           func(_ rego.BuiltinContext, a, b *ast.Term) (*ast.Term, error) {
 
-	ctx.Done()
+	               var expression, input string
 
-	return resultSet
+	               if err := ast.As(a.Value, &expression); err != nil {
+	                   return nil, err
+	               }
+	               // expression = a.Value.String()
+	               input = b.Value.String()
+
+	               res, err := conditionEvaluator.Evaluate(expression, input)
+
+	               return ast.BooleanTerm(res), err
+
+	           }),
+	       rego.Trace(true),
+	   )
+
+	   resultSet, err := regoHandle.Eval(ctx)
+	   if err != nil {
+	       assert.Fail(t, "Error evaluating rego: "+err.Error())
+	   }
+
+	   // rego.PrintTraceWithLocation(os.Stdout, regoHandle)
+
+	   ctx.Done()
+
+	*/
 }
 
-func ProcessResults(results rego.ResultSet) ([]string, []string) {
-	var rights string
-	var allowString string
-	var allowed string
-	result := results[0].Expressions[0]
-	for k, v := range result.Value.(map[string]interface{}) {
-		if k == "actionRights" {
-			rights = fmt.Sprintf("%v", v)
-		}
-		if k == "allowSet" {
-			allowString = fmt.Sprintf("%v", v)
-		}
-		if k == "allow" {
-			allowed = fmt.Sprintf("%v", v)
-		}
-	}
-	actionRights := strings.FieldsFunc(rights, func(r rune) bool {
-		return strings.ContainsRune("[ ]", r)
-	})
-	allowSet := strings.FieldsFunc(allowString, func(r rune) bool {
-		return strings.ContainsRune("[ ]", r)
-	})
-	fmt.Println("allowed:     \t" + allowed)
-	fmt.Println("actionRights:\t" + rights)
-	fmt.Println("allowSet:    \t" + allowString)
+func ProcessResults(t *testing.T, results *decisionsupportproviders.HexaOpaResult) ([]string, []string) {
+	t.Helper()
 
-	return allowSet, actionRights
+	if results.PolicyErrors != nil && len(results.PolicyErrors) != 0 {
+		errBytes, _ := json.MarshalIndent(results.PolicyErrors, "", " ")
+		t.Error(fmt.Sprintf("Received policy parse errors:\n%s", string(errBytes)))
+		t.Fail()
+	}
+
+	resBytes, _ := json.MarshalIndent(results, "", " ")
+	t.Log(fmt.Sprintf("Received results:\n%s", string(resBytes)))
+
+	return results.AllowSet, results.ActionRights
 }
