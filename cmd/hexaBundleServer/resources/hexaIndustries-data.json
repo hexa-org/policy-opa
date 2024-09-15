@@ -2,85 +2,59 @@
   "policies": [
     {
       "meta": {
-        "version": "0.6",
+        "version": "0.7",
         "policyId": "getRootPage",
         "description": "Retrieve the root page open to anyone"
       },
       "actions": [
-        {
-          "actionUri": "http:GET:/dashboard"
-        }
+        "http:GET:/dashboard"
       ],
-      "subject": {
-        "members": [
-          "any",
-          "anyauthenticated"
-        ]
-      },
-      "object": {
-        "resource_id": "hexaIndustries"
-      }
+      "subjects": [
+        "any",
+        "anyauthenticated"
+      ],
+      "object": "hexaIndustries"
     },
     {
       "meta": {
-        "version": "0.6",
+        "version": "0.7",
         "policyId": "getSales"
       },
       "actions": [
-        {
-          "actionUri": "sales"
-        }
+        "sales"
       ],
-      "subject": {
-        "members": [
-          "role:sales",
-          "role:marketing"
-        ]
-      },
-      "object": {
-        "resource_id": "hexaIndustries"
-      }
+      "subjects": [
+        "role:sales",
+        "role:marketing"
+      ],
+      "object": "hexaIndustries"
     },
     {
       "meta": {
-        "version": "0.6",
+        "version": "0.7",
         "policyId": "getAccounting"
       },
       "actions": [
-        {
-          "actionUri": "http:GET:/accounting"
-        },
-        {
-          "actionUri": "http:POST:/accounting"
-        }
+        "http:GET:/accounting",
+        "http:POST:/accounting"
       ],
-      "subject": {
-        "members": [
-          "role:accounting"
-        ]
-      },
-      "object": {
-        "resource_id": "hexaIndustries"
-      }
+      "subjects": [
+        "role:accounting"
+      ],
+      "object": "hexaIndustries"
     },
     {
       "meta": {
-        "version": "0.6",
+        "version": "0.7",
         "policyId": "getHumanResources"
       },
       "actions": [
-        {
-          "actionUri": "http:GET:/humanresources"
-        }
+        "http:GET:/humanresources"
       ],
-      "subject": {
-        "members": [
-          "role:humanresources"
-        ]
-      },
-      "object": {
-        "resource_id": "hexaIndustries"
-      }
+      "subjects": [
+        "role:humanresources"
+      ],
+      "object": "hexaIndustries"
     }
   ]
 }

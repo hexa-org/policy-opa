@@ -23,101 +23,60 @@ var dataString = `
     {
       "meta": {
         "policyId": "GetUsers",
-        "version": "0.6",
+        "version": "0.7",
         "description": "Get information (e.g. email, picture) associated with a user"
       },
-      "subject": {
-        "members": ["anyAuthenticated"]
-      },
-      "actions": [
-        {
-          "actionUri": "can_read_user"
-        }
-      ],
-      "object": {
-        "resource_id": "todo"
-      }
+      "subjects": ["anyAuthenticated"],
+      "actions": ["can_read_user"],
+      "object": "todo"
     },
     {
       "meta": {
         "policyId": "GetTodos",
-        "version": "0.6",
-
+        "version": "0.7",
         "description": "Get the list of todos. Always returns true for every user??"
       },
-      "subject": {
-        "members": ["anyAuthenticated"]
-      },
-      "actions": [
-        {
-          "actionUri": "can_read_todos"
-        }
-      ],
-      "object": {
-        "resource_id": "todo"
-      }
+      "subjects": ["anyAuthenticated"],
+      "actions": ["can_read_todos"],
+      "object": "todo"
     },
     {
       "meta": {
-        "version": "0.6",
+        "version": "0.7",
         "description": "Create a new Todo",
         "policyId": "PostTodo"
       },
-      "subject": {
-        "members": ["role:admin","role:editor"]
-      },
-      "actions": [
-        {
-          "actionUri": "can_create_todo"
-        }
-      ],
-      "object": {
-        "resource_id": "todo"
-      }
+      "subjects": ["role:admin","role:editor"],
+      "actions": ["can_create_todo"],
+      "object": "todo"
     },
     {
       "meta": {
-        "version": "0.6",
+        "version": "0.7",
         "description": "Edit(complete) a todo.",
         "policyId": "PutTodo"
       },
-      "subject": {
-        "members": ["anyAuthenticated"]
-      },
-      "actions": [
-        {
-          "actionUri": "can_update_todo"
-        }
-      ],
+      "subjects": ["anyAuthenticated"],
+      "actions": ["can_update_todo"],
       "condition": {
         "rule": "subject.roles co evil_genius or ( subject.roles co editor and resource.ownerID eq subject.claims.id )",
         "action": "allow"
       },
-      "object": {
-        "resource_id": "todo"
-      }
+      "object": "todo"
     },
     {
       "meta": {
-        "version": "0.6",
+        "version": "0.7",
         "description": "Delete a todo if admin or owner of todo",
         "policyId": "DeleteTodo"
       },
-      "subject": {
-        "members": ["anyAuthenticated"]
-      },
-      "actions": [
-        {
-          "actionUri": "can_delete_todo"
-        }
-      ],
+      "subjects": ["anyAuthenticated"],
+      "actions": ["can_delete_todo"],
       "condition": {
         "rule": "subject.roles co admin or ( subject.roles co editor and resource.ownerID eq subject.claims.id )",
         "action": "allow"
       },
-      "object": {
-        "resource_id": "todo"
-      }
+      "object": "todo"
     }
   ]
 }`
@@ -145,6 +104,7 @@ func GetTestBundlePath(bundle string) string {
 }
 
 func InitTestEmptyBundleDir(t *testing.T) string {
+	t.Helper()
 	tempDir, err := os.MkdirTemp("", "policy-opa-empty-*")
 	assert.NoError(t, err, "No error creating tempdir")
 

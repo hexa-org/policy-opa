@@ -47,20 +47,12 @@ Would translate in IDQL to:
 {
   "meta": {
     "policyId": "SearchGroups",
-    "version": "0.6.10",
+    "version": "0.7",
     "description": "Allow Authenticated access to search groups"
   },
-  "subject": {
-    "members": ["role:user","role:root"]
-  },
-  "actions": [
-    {
-      "actionUri":"search"
-    }
-  ],
-  "object": {
-    "resource_id": "/Groups/*"
-  },
+  "subject": ["role:user","role:root"],
+  "actions": ["search"],
+  "object": "/Groups/*",
   "condition": {
     "rule": "subject.type eq bearer",
     "action": "allow"
@@ -100,26 +92,16 @@ Would translate in IDQL to:
 {
   "meta": {
     "policyId": "TeamLeaderSearch",
-    "version": "0.6.10",
+    "version": "0.7",
     "description": "Allow team leaders to search, compare, or read any resource type that is User"
   },
-  "subject": {
-    "members": ["group:TeamLeaderGroup","role:admin"]
-  },
+  "subject": ["group:TeamLeaderGroup","role:admin"],
   "actions": [
-    {
-      "actionUri":"search"
-    },
-    {
-      "actionUri": "compare"
-    },
-    {
-      "actionUri": "read"
-    }
+    "search",
+    "compare",
+    "read"
   ],
-  "object": {
-    "resource_id": "/*"
-  },
+  "object": "/*",
   "scope": {
     "filter": "scim:department eq automotive",
     "attributes": ["name","username","displayname","addresses","phonenumbers","title"]

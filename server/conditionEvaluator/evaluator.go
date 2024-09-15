@@ -26,7 +26,7 @@ func Evaluate(expression string, input string) (bool, error) {
 		log.Print("condition evaluation error: " + err.Error())
 		return false, err
 	}
-	return evalWalk(*ast, input)
+	return evalWalk(ast, input)
 }
 
 func getAttributeValue(input string, path string) gjson.Result {
