@@ -2,14 +2,12 @@ module github.com/hexa-org/policy-opa
 
 go 1.23
 
-toolchain go1.23.0
-
-// replace github.com/hexa-org/policy-mapper => ../policy-mapper
+toolchain go1.23.1
 
 require (
 	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/gorilla/mux v1.8.1
-	github.com/hexa-org/policy-mapper v0.7.0-alpha.2
+	github.com/hexa-org/policy-mapper v0.7.0
 	github.com/open-policy-agent/opa v0.68.0
 	github.com/stretchr/testify v1.9.0
 	github.com/tidwall/gjson v1.17.3
@@ -19,10 +17,10 @@ require (
 require (
 	cloud.google.com/go/auth v0.9.4 // indirect
 	cloud.google.com/go/auth/oauth2adapt v0.2.4 // indirect
-	cloud.google.com/go/compute/metadata v0.5.0 // indirect
+	cloud.google.com/go/compute/metadata v0.5.1 // indirect
 	github.com/AdaLogics/go-fuzz-headers v0.0.0-20240806141605-e8a1dd7889d6 // indirect
-	github.com/MicahParks/jwkset v0.5.18 // indirect
-	github.com/MicahParks/keyfunc/v3 v3.3.3 // indirect
+	github.com/MicahParks/jwkset v0.5.19 // indirect
+	github.com/MicahParks/keyfunc/v3 v3.3.5 // indirect
 	github.com/Microsoft/hcsshim v0.12.4 // indirect
 	github.com/OneOfOne/xxhash v1.2.8 // indirect
 	github.com/agnivade/levenshtein v1.1.1 // indirect
@@ -123,7 +121,7 @@ require (
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/yashtewari/glob-intersection v0.2.0 // indirect
 	go.opencensus.io v0.24.0 // indirect
-	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.54.0 // indirect
+	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.55.0 // indirect
 	go.opentelemetry.io/otel v1.30.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.30.0 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc v1.30.0 // indirect
