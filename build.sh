@@ -67,7 +67,7 @@ echo ""
 
 echo "* building docker container image ($tag)..."
 echo "  - downloading latest chainguard platform image"
-docker pull cgr.dev/chainguard/static:latest
+docker pull docker.io/chainguard/static:latest
 
 if [ "$multi" = 'Y' ];then
    echo "  - performing multi platform build"

@@ -10,6 +10,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
+	"strings"
 
 	"github.com/hexa-org/policy-opa/api/infoModel"
 	"github.com/hexa-org/policy-opa/client/hexaOpaClient"
@@ -19,6 +21,7 @@ import (
 	"github.com/hexa-org/policy-opa/server/hexaFilter"
 	"github.com/open-policy-agent/opa/ast"
 	"github.com/open-policy-agent/opa/rego"
+	"github.com/open-policy-agent/opa/topdown"
 	"github.com/open-policy-agent/opa/types"
 )
 
@@ -26,6 +29,7 @@ type RegoHandler struct {
 	query     *rego.PreparedEvalQuery
 	rego      *rego.Rego
 	bundleDir string
+	Tracer    *topdown.BufferTracer
 }
 
 func (h *RegoHandler) HealthCheck() bool {
@@ -40,12 +44,18 @@ func (h *RegoHandler) HealthCheck() bool {
 }
 
 func (h *RegoHandler) ReloadRego() error {
+	debug := os.Getenv(decisionsupportproviders.EnvOpaDebug)
+	if debug != "" && strings.EqualFold(debug, "debug") {
+		h.Tracer = topdown.NewBufferTracer()
+	}
 	ctx := context.Background()
+
 	regoHandle := rego.New(
 		rego.EnablePrintStatements(true),
 		rego.Query("data.hexaPolicy"),
 		rego.Package("hexaPolicy"),
 		rego.LoadBundle(h.bundleDir),
+		rego.Trace(true),
 		// rego.Module("bundle/hexaPolicyV2.rego", regoString),
 		// rego.Store(store),
 		rego.Function2(
@@ -70,7 +80,6 @@ func (h *RegoHandler) ReloadRego() error {
 				return ast.BooleanTerm(res), err
 
 			}),
-		rego.Trace(true),
 	)
 
 	query, err := regoHandle.PrepareForEval(ctx)
@@ -111,6 +120,7 @@ func (h *RegoHandler) CheckBundleDir() error {
 func (h *RegoHandler) Evaluate(input infoModel.AzInfo) (rego.ResultSet, error) {
 	// inputBytes, _ := json.MarshalIndent(input, "", " ")
 	// fmt.Println(string(inputBytes))
+
 	if h.query == nil {
 		return nil, errors.New("OPA query handler not ready")
 	}
@@ -126,7 +136,7 @@ func (h *RegoHandler) ProcessResults(results rego.ResultSet) *decisionsupportpro
 	opaResult := decisionsupportproviders.HexaOpaResult{}
 	err = json.Unmarshal(resBytes, &opaResult)
 	if err != nil {
-		config.ServerLog.Print("error convertin result: " + err.Error())
+		config.ServerLog.Print("error converting result: " + err.Error())
 	}
 	/*
 		for k, v := range result.Value.(map[string]interface{}) {
