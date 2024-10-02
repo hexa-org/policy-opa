@@ -16,13 +16,8 @@ const DefaultUserPipFile string = "../resources/users.json"
 
 var ulog = log.New(os.Stdout, "USERPIP: ", log.Ldate|log.Ltime)
 
-type UserIP struct {
-	users map[string]infoModel.UserInfo
-}
-
 // NewUserPIP Loads the AuthZen users and returns a UserIP map. If file is not found nil is returned.
-func NewUserPIP(userPath string) *UserIP {
-	uip := UserIP{users: make(map[string]infoModel.UserInfo)}
+func NewUserPIP(userPath string) *infoModel.UserRecs {
 	loadFile := userPath
 	var exists bool
 	if userPath == "" {
@@ -46,12 +41,5 @@ func NewUserPIP(userPath string) *UserIP {
 		return nil
 	}
 
-	for _, user := range users.Users {
-		uip.users[user.Sub] = user
-	}
-	return &uip
-}
-
-func (u *UserIP) GetUser(id string) infoModel.UserInfo {
-	return u.users[id]
+	return &users
 }

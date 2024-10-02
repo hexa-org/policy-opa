@@ -41,7 +41,7 @@ func TestOpaHandler(t *testing.T) {
 
 	subject := opaTools.SubjectInfo{
 		Roles:  user.Roles,
-		Sub:    user.Sub,
+		Sub:    user.Id,
 		Claims: claims,
 		Type:   "jwt",
 	}
@@ -93,7 +93,7 @@ func TestOpaHandler(t *testing.T) {
 
 	subject = opaTools.SubjectInfo{
 		Roles:  user.Roles,
-		Sub:    user.Sub,
+		Sub:    user.Id,
 		Claims: claims,
 		Type:   "jwt",
 	}

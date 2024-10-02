@@ -21,19 +21,19 @@ func TestUsers(t *testing.T) {
 
 	userDef := NewUserPIP("")
 	assert.NotNil(t, userDef, "Default users not nil")
-	assert.Equal(t, len(userDef.users), 5, "5 users loaded")
+	assert.Equal(t, len(*userDef), 5, "5 users loaded")
 
 	users := NewUserPIP(wrongPath)
 	assert.Nil(t, users, "Should be no userpip returned")
 
 	users = NewUserPIP(userPath)
 	assert.NotNil(t, users, "Should be a user pip loaded")
-	assert.Greater(t, len(users.users), 4, "Should be at least 5 users")
+	assert.Greater(t, len(*users), 4, "Should be at least 5 users")
 
 	_ = os.Setenv(config.EnvAuthUserPipFile, userPath)
 	usersByEnv := NewUserPIP("")
 	assert.NotNil(t, usersByEnv, "Should be a user pip loaded")
-	assert.Greater(t, len(usersByEnv.users), 4, "Should be at least 5 users")
+	assert.Greater(t, len(*usersByEnv), 4, "Should be at least 5 users")
 
 	morty := users.GetUser("CiRmZDE2MTRkMy1jMzlhLTQ3ODEtYjdiZC04Yjk2ZjVhNTEwMGQSBWxvY2Fs")
 	assert.NotNil(t, morty, "Morty is returned")

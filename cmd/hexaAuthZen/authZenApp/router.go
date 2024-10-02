@@ -51,7 +51,7 @@ func NewRouter(application *AuthZenApp) *HttpRouter {
 					Path(route.Pattern).
 					Name(route.Name).
 					Handler(handler).
-					Queries("id", "{id:[a-fA-F0-9]+}")
+					Evaluations("id", "{id:[a-fA-F0-9]+}")
 			}
 			else {
 		*/

@@ -127,7 +127,8 @@ func (o OpaDecisionProvider) AllowQuery(any interface{}) (*HexaOpaResult, error)
 		return nil, err
 	}
 	if jsonResponse.Warning != nil {
-		log.Info(fmt.Sprintf("Rego warning:\n%s", jsonResponse.Warning))
+		warn, _ := jsonResponse.Warning.MarshalJSON()
+		log.Info(fmt.Sprintf("Rego warning:\n%s", string(warn)))
 	}
 	log.Info(fmt.Sprintf("Decision: %s, Allow: %t", jsonResponse.DecisionId, jsonResponse.Result.Allow))
 	// allow := processResults(jsonResponse)

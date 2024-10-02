@@ -7,6 +7,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/hexa-org/policy-mapper/pkg/oauth2support"
@@ -103,9 +104,9 @@ func TestHandleEvaluation(t *testing.T) {
 	az := AuthZenApp{bundleDir: bundleDir}
 	az.Decision = decisionHandler.NewDecisionHandler()
 
-	body := infoModel.AuthRequest{
-		Subject: infoModel.SubjectInfo{Identity: "CiRmZDM2MTRkMy1jMzlhLTQ3ODEtYjdiZC04Yjk2ZjVhNTEwMGQSBWxvY2Fs"},
-		Action:  infoModel.ActionInfo{Name: "can_read_todos"},
+	body := infoModel.EvaluationItem{
+		Subject: &infoModel.SubjectInfo{Id: "CiRmZDM2MTRkMy1jMzlhLTQ3ODEtYjdiZC04Yjk2ZjVhNTEwMGQSBWxvY2Fs"},
+		Action:  &infoModel.ActionInfo{Name: "can_read_todos"},
 	}
 
 	bodyBytes, err := json.Marshal(&body)
@@ -120,7 +121,7 @@ func TestHandleEvaluation(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code, "Request processed ok")
 	bodyBytes = rr.Body.Bytes()
 
-	var simpleResponse infoModel.SimpleResponse
+	var simpleResponse infoModel.DecisionResponse
 	err = json.Unmarshal(bodyBytes, &simpleResponse)
 	assert.NoError(t, err, "response was parsed")
 	assert.True(t, simpleResponse.Decision, "check decision is true")
@@ -135,11 +136,16 @@ func TestHandleQueryEvaluation(t *testing.T) {
 	az := AuthZenApp{bundleDir: bundleDir}
 	az.Decision = decisionHandler.NewDecisionHandler()
 
+	defaultItem := infoModel.EvaluationItem{
+		Subject: &infoModel.SubjectInfo{Id: "CiRmZDM2MTRkMy1jMzlhLTQ3ODEtYjdiZC04Yjk2ZjVhNTEwMGQSBWxvY2Fs"},
+	}
 	body := infoModel.QueryRequest{
-		Subject: infoModel.SubjectInfo{Identity: "CiRmZDM2MTRkMy1jMzlhLTQ3ODEtYjdiZC04Yjk2ZjVhNTEwMGQSBWxvY2Fs"},
-		Queries: []infoModel.QueryItem{{
-			Action: "can_update_todo",
-		}},
+		EvaluationItem: &defaultItem,
+		Evaluations: &infoModel.EvaluationBlock{
+			Items: &[]infoModel.EvaluationItem{{
+				Action: &infoModel.ActionInfo{Name: "can_update_todo"},
+			}},
+		},
 	}
 
 	bodyBytes, err := json.Marshal(&body)
@@ -150,12 +156,16 @@ func TestHandleQueryEvaluation(t *testing.T) {
 	az.HandleQueryEvaluation(rr, req)
 
 	assert.Equal(t, "1234", rr.Header().Get(config.HeaderRequestId), "Check request id is returned")
-	assert.Equal(t, http.StatusNotImplemented, rr.Code, "Request processed ok")
+	assert.Equal(t, http.StatusOK, rr.Code, "Request processed ok")
 
 }
 
 func TestHandleSecurity(t *testing.T) {
-	bundleDir := bundleTestSupport.InitTestBundlesDir(nil)
+	_, file, _, _ := runtime.Caller(0)
+	authzenPolicy := filepath.Join(file, "../../resources/data.json")
+	todoPolicyBytes, err := os.ReadFile(authzenPolicy)
+	assert.NoError(t, err)
+	bundleDir := bundleTestSupport.InitTestBundlesDir(todoPolicyBytes)
 	defer bundleTestSupport.Cleanup(bundleDir)
 
 	_ = os.Setenv(tokensupport.EnvTknPrivateKeyFile, filepath.Join(bundleDir, "certs", tokensupport.DefTknPrivateKeyFile))
@@ -180,9 +190,9 @@ func TestHandleSecurity(t *testing.T) {
 
 	az.TokenAuthorizer, err = oauth2support.NewResourceJwtAuthorizer()
 
-	body := infoModel.AuthRequest{
-		Subject: infoModel.SubjectInfo{Identity: "CiRmZDM2MTRkMy1jMzlhLTQ3ODEtYjdiZC04Yjk2ZjVhNTEwMGQSBWxvY2Fs"},
-		Action:  infoModel.ActionInfo{Name: "can_read_todos"},
+	body := infoModel.EvaluationItem{
+		Subject: &infoModel.SubjectInfo{Id: "CiRmZDM2MTRkMy1jMzlhLTQ3ODEtYjdiZC04Yjk2ZjVhNTEwMGQSBWxvY2Fs"},
+		Action:  &infoModel.ActionInfo{Name: "can_read_todos"},
 	}
 
 	bodyBytes, err := json.Marshal(&body)
@@ -199,7 +209,7 @@ func TestHandleSecurity(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rr.Code, "Request processed ok")
 	bodyBytes = rr.Body.Bytes()
 
-	var simpleResponse infoModel.SimpleResponse
+	var simpleResponse infoModel.DecisionResponse
 	err = json.Unmarshal(bodyBytes, &simpleResponse)
 	assert.NoError(t, err, "response was parsed")
 	assert.True(t, simpleResponse.Decision, "check decision is true")
@@ -217,15 +227,61 @@ func TestHandleSecurity(t *testing.T) {
 	bundleHandler.ServeHTTP(rr, req)
 	assert.Equal(t, http.StatusForbidden, rr.Code, "Check request is forbidden")
 
-	inputStr :=
-		"{\"subject\":{\"identity\":\"CiRmZDE2MTRkMy1jMzlhLTQ3ODEtYjdiZC04Yjk2ZjVhNTEwMGQSBWxvY2Fs\"},\"action\":{\"name\":\"can_update_todo\"},\"resource\":{\"type\":\"todo\",\"ownerID\":\"morty@the-citadel.com\"}}"
-	req, err = http.NewRequest("POST", config.EndpointAuthzenSingleDecision, bytes.NewBufferString(inputStr))
+	testFail := `{
+        "subject": {
+          "type": "user",
+          "id": "CiRmZDE2MTRkMy1jMzlhLTQ3ODEtYjdiZC04Yjk2ZjVhNTEwMGQSBWxvY2Fs"
+        },
+        "action": {
+          "name": "can_update_todo"
+        },
+        "resource": {
+          "type": "todo",
+          "id": "7240d0db-8ff0-41ec-98b2-34a096273b9f",
+          "properties": {
+            "ownerID": "rick@the-citadel.com"
+          }
+        }
+      }`
+
+	req, err = http.NewRequest("POST", config.EndpointAuthzenSingleDecision, bytes.NewBufferString(testFail))
 	req.Header.Set(config.HeaderRequestId, "1234")
 	req.Header.Set("Authorization", "Bearer "+authToken)
 	rr = httptest.NewRecorder()
 	jwtHandler.ServeHTTP(rr, req)
 
 	assert.Equal(t, "1234", rr.Header().Get(config.HeaderRequestId), "Check request id is returned")
+	assert.Equal(t, http.StatusOK, rr.Code, "Request processed ok")
+	bodyBytes = rr.Body.Bytes()
+
+	err = json.Unmarshal(bodyBytes, &simpleResponse)
+	assert.NoError(t, err, "response was parsed")
+	assert.False(t, simpleResponse.Decision, "check decision is false")
+
+	testShouldBeAllowed := `{
+        "subject": {
+          "type": "user",
+          "id": "CiRmZDE2MTRkMy1jMzlhLTQ3ODEtYjdiZC04Yjk2ZjVhNTEwMGQSBWxvY2Fs"
+        },
+        "action": {
+          "name": "can_update_todo"
+        },
+        "resource": {
+          "type": "todo",
+          "id": "7240d0db-8ff0-41ec-98b2-34a096273b9f",
+          "properties": {
+            "ownerID": "morty@the-citadel.com"
+          }
+        }
+      }`
+
+	req, err = http.NewRequest("POST", config.EndpointAuthzenSingleDecision, bytes.NewBufferString(testShouldBeAllowed))
+	req.Header.Set(config.HeaderRequestId, "5678")
+	req.Header.Set("Authorization", "Bearer "+authToken)
+	rr = httptest.NewRecorder()
+	jwtHandler.ServeHTTP(rr, req)
+
+	assert.Equal(t, "5678", rr.Header().Get(config.HeaderRequestId), "Check request id is returned")
 	assert.Equal(t, http.StatusOK, rr.Code, "Request processed ok")
 	bodyBytes = rr.Body.Bytes()
 

@@ -8,22 +8,38 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
+	"strings"
+	"time"
 
 	"github.com/hexa-org/policy-mapper/providers/openpolicyagent"
-	infoModel2 "github.com/hexa-org/policy-opa/api/infoModel"
+	"github.com/hexa-org/policy-opa/api/infoModel"
 	opaTools "github.com/hexa-org/policy-opa/client/hexaOpaClient"
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/config"
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/userHandler"
 	"github.com/hexa-org/policy-opa/pkg/compressionsupport"
+	"github.com/hexa-org/policy-opa/pkg/decisionsupportproviders"
 	"github.com/hexa-org/policy-opa/server/opaHandler"
 )
 
+const (
+	ResultBrief  = "brief"
+	ResultDetail = "detail"
+)
+
 type DecisionHandler struct {
-	pip         *userHandler.UserIP
-	regoHandler *opaHandler.RegoHandler
+	pip          *infoModel.UserRecs
+	regoHandler  *opaHandler.RegoHandler
+	resultDetail string
 }
 
 func NewDecisionHandler() *DecisionHandler {
+	detail := os.Getenv(config.EnvAuthZenDecDetail)
+	if strings.EqualFold(detail, ResultDetail) {
+		detail = ResultDetail
+	} else {
+		detail = ResultBrief
+	}
+
 	bundlesDir := os.Getenv(config.EnvBundleDir)
 	if bundlesDir == "" {
 		bundlesDir = config.DefBundlePath
@@ -42,8 +58,9 @@ func NewDecisionHandler() *DecisionHandler {
 	}
 
 	return &DecisionHandler{
-		pip:         userHandler.NewUserPIP(""),
-		regoHandler: opaHandler.NewRegoHandler(bundlesDir),
+		pip:          userHandler.NewUserPIP(""),
+		regoHandler:  opaHandler.NewRegoHandler(bundlesDir),
+		resultDetail: detail,
 	}
 }
 
@@ -67,31 +84,48 @@ func (d *DecisionHandler) ProcessUploadOpa() error {
 	return d.regoHandler.ReloadRego()
 }
 
-func (d *DecisionHandler) createInputObjectSimple(authRequest infoModel2.AuthRequest) infoModel2.AzInfo {
-	user := d.pip.GetUser(authRequest.Subject.Identity)
+func (d *DecisionHandler) createInputObjectSimple(authRequest infoModel.EvaluationItem, resources *[]string) infoModel.AzInfo {
+	var user *infoModel.UserInfo
+	if authRequest.Subject != nil && authRequest.Subject.Id != "" {
+		user = d.pip.GetUser(authRequest.Subject.Id)
+	}
 
 	claims := make(map[string]interface{})
-	claims["email"] = user.Email
-	claims["picture"] = user.Picture
-	claims["name"] = user.Name
-	claims["id"] = user.Id
-
-	subject := opaTools.SubjectInfo{
-		Roles:  user.Roles,
-		Sub:    user.Sub,
-		Claims: claims,
+	var subject opaTools.SubjectInfo
+	if user != nil {
+		// if no user located or assserted, there is nothing to set
+		claims["email"] = user.Email
+		claims["picture"] = user.Picture
+		claims["name"] = user.Name
+		claims["id"] = user.Id
+		subject = opaTools.SubjectInfo{
+			Roles:  user.Roles,
+			Sub:    authRequest.Subject.Id,
+			Claims: claims,
+		}
 	}
 
-	actions := []string{authRequest.Action.Name}
-	reqParams := opaTools.ReqParams{
+	var actions []string
+
+	if authRequest.Action != nil {
+		actions = []string{authRequest.Action.Name}
+	}
+
+	var reqParams opaTools.ReqParams
+
+	reqParams = opaTools.ReqParams{
 		ActionUris:  actions,
-		ResourceIds: []string{"todo"},
+		ResourceIds: *resources,
 	}
 
-	return infoModel2.AzInfo{
+	var resource infoModel.ResourceInfo
+	if authRequest.Resource != nil {
+		resource = *authRequest.Resource
+	}
+	return infoModel.AzInfo{
 		Req:      &reqParams,
 		Subject:  &subject,
-		Resource: authRequest.Resource,
+		Resource: resource,
 	}
 
 }
@@ -104,11 +138,12 @@ func (d *DecisionHandler) HealthCheck() bool {
 ProcessDecision takes an AuthZen AuthRequest, generates a Hexa OPA input object that combines resource, subject, and
 request information and calls the HexaOPA decision engine and parses the results.
 */
-func (d *DecisionHandler) ProcessDecision(authRequest infoModel2.AuthRequest) (*infoModel2.SimpleResponse, error, int) {
+func (d *DecisionHandler) ProcessDecision(authRequest infoModel.EvaluationItem) (*infoModel.DecisionResponse, error, int) {
 
-	input := d.createInputObjectSimple(authRequest)
+	input := d.createInputObjectSimple(authRequest, &[]string{"todo"})
 
 	results, err := d.regoHandler.Evaluate(input)
+
 	if err != nil {
 		return nil, err, 500
 	}
@@ -116,13 +151,61 @@ func (d *DecisionHandler) ProcessDecision(authRequest infoModel2.AuthRequest) (*
 
 	// process response
 	if result.Allow == true {
-		return &infoModel2.SimpleResponse{Decision: true}, nil, 200
+		return &infoModel.DecisionResponse{Decision: true}, nil, 200
 	}
-	return &infoModel2.SimpleResponse{Decision: false}, nil, 200
+	return &infoModel.DecisionResponse{Decision: false}, nil, 200
+}
+
+func (d *DecisionHandler) convertResult(result *decisionsupportproviders.HexaOpaResult, evalErr error) infoModel.DecisionResponse {
+
+	context := infoModel.ContextInfo{}
+	now := time.Now()
+	context["time"] = now
+
+	allow := false
+	if result != nil {
+		context["PoliciesEvaluated"] = result.PoliciesEvaluated
+		context["HexaRegoVersion"] = result.HexaRegoVersion
+		context["AllowSet"] = result.AllowSet
+		context["ActionRights"] = result.ActionRights
+		if result.PolicyErrors != nil {
+			context["PolicyErrors"] = result.PolicyErrors
+		}
+		if result.Scopes != nil {
+			context["Scopes"] = result.Scopes
+		}
+		allow = result.Allow
+	}
+
+	if evalErr != nil {
+		errMap := make(map[string]interface{})
+		errMap["status"] = 500
+		errMap["message"] = evalErr.Error()
+		context["error"] = errMap
+		return infoModel.DecisionResponse{Decision: false, Context: &context}
+	}
+
+	if d.resultDetail == ResultDetail {
+		return infoModel.DecisionResponse{Decision: allow, Context: &context}
+	}
+
+	// TODO Authzen interop currently not accepting context attribute
+	return infoModel.DecisionResponse{Decision: allow}
 }
 
 // ProcessQueryDecision takes an AuthZen Query request processes each query into an HexaOPA decision and returns a response
-func (d *DecisionHandler) ProcessQueryDecision(_ infoModel2.QueryRequest, _ *http.Request) (*infoModel2.EvaluationsResponse, error, int) {
-	// TODO: Implement Process query decision
-	return nil, nil, http.StatusNotImplemented
+func (d *DecisionHandler) ProcessQueryDecision(query infoModel.QueryRequest, _ *http.Request) (*infoModel.EvaluationsResponse, error, int) {
+
+	items := query.EvaluationItems()
+	decisionResponses := make([]infoModel.DecisionResponse, len(items))
+	for i, item := range items {
+		input := d.createInputObjectSimple(item, &[]string{"todo"})
+
+		results, evalErr := d.regoHandler.Evaluate(input)
+		result := d.regoHandler.ProcessResults(results)
+		decisionResponses[i] = d.convertResult(result, evalErr)
+	}
+	return &infoModel.EvaluationsResponse{
+		Evaluations: &decisionResponses,
+	}, nil, http.StatusOK
 }
