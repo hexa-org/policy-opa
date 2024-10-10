@@ -1,6 +1,7 @@
 package commandSupport
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -17,7 +18,10 @@ import (
 )
 
 func AssertContains(t *testing.T, url string, contains string) {
-	resp, _ := http.Get(url)
+	resp, err := http.Get(url)
+	if err != nil {
+		t.Fatal(err)
+	}
 	body, _ := io.ReadAll(resp.Body)
 	assert.Contains(t, string(body), contains, url)
 }
@@ -55,7 +59,10 @@ func StartCmd(cmd *exec.Cmd, checkPort int) error {
 		if err != nil {
 			return err
 		}
-		WaitForHealthy(fmt.Sprintf("localhost:%v", checkPort))
+		isUp := WaitForHealthy(fmt.Sprintf("localhost:%v", checkPort))
+		if !isUp {
+			return errors.New("failed to start")
+		}
 	} else {
 
 		cmd.WaitDelay = 30 * time.Second
@@ -68,15 +75,23 @@ func StartCmd(cmd *exec.Cmd, checkPort int) error {
 	return err
 }
 
-func WaitForHealthy(address string) {
+func WaitForHealthy(address string) bool {
 	var isLive bool
+	cnt := 0
 	for !isLive {
+		cnt++
 		resp, err := http.Get(fmt.Sprintf("http://%s/health", address))
 		if err == nil && resp.StatusCode == http.StatusOK {
 			log.Println("Server is healthy.", address)
-			isLive = true
+			return true
 		}
+		if cnt > 100 {
+			log.Println("Failed to start.")
+			return false
+		}
+		time.Sleep(1 * time.Second)
 	}
+	return isLive
 }
 
 func StopCmds(cmds ...*exec.Cmd) {

@@ -14,7 +14,8 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestDemoFlow(t *testing.T) {
+func TestAuthZenServerCommand(t *testing.T) {
+
 	_, file, _, _ := runtime.Caller(0)
 	certPath := fmt.Sprintf("%s=%s", keysupport.EnvCertDirectory, filepath.Join(path.Dir(file), "../../.certs"))
 	bundlePath := fmt.Sprintf("%s=%s", config.EnvBundleDir, filepath.Join(path.Dir(file), "../../deployments/authZen/bundles"))
@@ -24,6 +25,11 @@ func TestDemoFlow(t *testing.T) {
 	authZenCmd, outBuf := MakeCmd("/cmd/hexaAuthZen/main.go", []string{"PORT=8999", certPath, "HEXA_TLS_ENABLED=false", bundlePath, userPip, tokenMode})
 
 	err := StartCmd(authZenCmd, 8999)
+	if err != nil {
+		outBytest, _ := io.ReadAll(outBuf)
+		t.Fatal("Error starting server: ", string(outBytest))
+	}
+
 	assert.Nil(t, err)
 	// startCmd(orchestrator, 8885)
 

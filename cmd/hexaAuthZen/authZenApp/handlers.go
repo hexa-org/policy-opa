@@ -16,7 +16,7 @@ import (
 	"github.com/hexa-org/policy-opa/pkg/compressionsupport"
 )
 
-const Header_Email string = "X-JWT-EMAIL"
+const HeaderEmail string = "X-JWT-EMAIL"
 
 func (az *AuthZenApp) Index(w http.ResponseWriter, r *http.Request) {
 	test := r.UserAgent()
@@ -28,7 +28,7 @@ func (az *AuthZenApp) checkAuthorization(scopes []string, r *http.Request) int {
 	if az.TokenAuthorizer != nil {
 		token, stat := az.TokenAuthorizer.ValidateAuthorization(r, scopes)
 		if token != nil {
-			r.Header.Set(Header_Email, token.Email)
+			r.Header.Set(HeaderEmail, token.Email)
 		}
 		return stat
 	}
@@ -42,7 +42,7 @@ func (az *AuthZenApp) HandleEvaluation(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set(config.HeaderRequestId, requestId)
 	}
 
-	var jsonRequest infoModel.AuthRequest
+	var jsonRequest infoModel.EvaluationItem
 	err := json.NewDecoder(r.Body).Decode(&jsonRequest)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
@@ -60,16 +60,19 @@ func (az *AuthZenApp) HandleEvaluation(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.WriteHeader(status)
-	if resp != nil {
-		bodyBytes, _ := json.Marshal(resp)
-		_, _ = w.Write(bodyBytes)
-	}
+	config.ServerLog.Println(fmt.Sprintf("Decision rid=%s decisions: %v", requestId, resp.Decision))
 
+	w.WriteHeader(status)
+
+	bodyBytes, _ := json.Marshal(resp)
+	_, _ = w.Write(bodyBytes)
 }
 
 func (az *AuthZenApp) HandleQueryEvaluation(w http.ResponseWriter, r *http.Request) {
 	requestId := r.Header.Get(config.HeaderRequestId)
+	if requestId != "" {
+		w.Header().Set(config.HeaderRequestId, requestId)
+	}
 
 	var jsonRequest infoModel.QueryRequest
 	err := json.NewDecoder(r.Body).Decode(&jsonRequest)
@@ -88,17 +91,10 @@ func (az *AuthZenApp) HandleQueryEvaluation(w http.ResponseWriter, r *http.Reque
 		http.Error(w, fmt.Sprintf("Unexpected internal decision error (id: %s", tid), status)
 		return
 	}
-
-	if requestId != "" {
-		w.Header().Set(config.HeaderRequestId, requestId)
-	}
-
-	if resp != nil {
-		bodyBytes, _ := json.Marshal(resp)
-		_, _ = w.Write(bodyBytes)
-	}
-
+	config.ServerLog.Println(fmt.Sprintf("Decision rid=%s decisions:", requestId), resp.Evaluations)
 	w.WriteHeader(status)
+	bodyBytes, _ := json.Marshal(resp)
+	_, _ = w.Write(bodyBytes)
 }
 
 func handleError(msg string, err error, w http.ResponseWriter, status int) {
@@ -138,7 +134,7 @@ func (az *AuthZenApp) saveExistingBundle() (string, error) {
 }
 
 /*
-BundleUpload accepts an OPA tar bundle and replaces the current bundle package at az.BundleDir. Note the the process
+BundleUpload accepts an OPA tar bundle and replaces the current bundle package at az.BundleDir. Note the process
 followed is:
 
 1. Save the existing bundle directory to ".bundle-<number>"

@@ -78,7 +78,7 @@ func (s *testSuite) SetupSuite() {
 
 	fmt.Println("Starting Authzen server...")
 	_ = os.Setenv(config.EnvBundleDir, s.bundleDir)
-	_ = os.Setenv(config.EnvAuthUserPipFile, userHandler.DefaultUserPipFile)
+	_ = os.Setenv(config.EnvAuthUserPipFile, userHandler.DefaultUserPipFile())
 	_ = os.Setenv(tokensupport.EnvTknEnforceMode, tokensupport.ModeEnforceAll)
 	listener, _ := net.Listen("tcp", "localhost:0")
 	s.addr = listener.Addr().String()
@@ -105,9 +105,9 @@ func (s *testSuite) TearDownSuite() {
 func (s *testSuite) TestAuthorizationEndpoint() {
 	fmt.Println("Testing authorization")
 
-	bodyStruct := infoModel.AuthRequest{
-		Subject: infoModel.SubjectInfo{Identity: "CiRmZDM2MTRkMy1jMzlhLTQ3ODEtYjdiZC04Yjk2ZjVhNTEwMGQSBWxvY2Fs"},
-		Action:  infoModel.ActionInfo{Name: "can_read_todos"},
+	bodyStruct := infoModel.EvaluationItem{
+		Subject: &infoModel.SubjectInfo{Id: "CiRmZDM2MTRkMy1jMzlhLTQ3ODEtYjdiZC04Yjk2ZjVhNTEwMGQSBWxvY2Fs"},
+		Action:  &infoModel.ActionInfo{Name: "can_read_todos"},
 	}
 
 	bodyBytes, err := json.Marshal(&bodyStruct)
@@ -167,7 +167,7 @@ func (s *testSuite) TestAuthorizationEndpoint() {
 	respBody, err := io.ReadAll(resp.Body)
 	assert.Nil(s.T(), err, "Should be no error reading response body")
 
-	var simpleResponse infoModel.SimpleResponse
+	var simpleResponse infoModel.DecisionResponse
 	err = json.Unmarshal(respBody, &simpleResponse)
 	assert.NoError(s.T(), err, "response was parsed")
 	assert.True(s.T(), simpleResponse.Decision, "check decision is true")
@@ -229,7 +229,7 @@ func (s *testSuite) TestHealth() {
 	status := string(bodyBytes)
 	assert.Contains(s.T(), status, "{\"name\":\"HexaAuthZen\",\"pass\":\"true\"}", "Correct response verified")
 	fmt.Println("Response:")
-	fmt.Println(string(status))
+	fmt.Println(status)
 
 }
 
@@ -254,7 +254,7 @@ func (s *testSuite) TestMetrics() {
 	status := string(bodyBytes)
 	// assert.Contains(s.T(), status, "{\"name\":\"HexaAuthZen\",\"pass\":\"true\"}", "Correct response verified")
 	fmt.Println("Response:")
-	fmt.Println(string(status))
+	fmt.Println(status)
 }
 
 func (s *testSuite) TestIndex() {
@@ -278,7 +278,7 @@ func (s *testSuite) TestIndex() {
 	status := string(bodyBytes)
 	assert.Contains(s.T(), status, "Hexa Authzen Test Server", "Correct response verified")
 	fmt.Println("Response:")
-	fmt.Println(string(status))
+	fmt.Println(status)
 }
 
 func (s *testSuite) TestLogger() {

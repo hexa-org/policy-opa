@@ -1,7 +1,6 @@
 package infoModel
 
 type UserInfo struct {
-	Sub     string   `json:"sub"`
 	Id      string   `json:"id"`
 	Name    string   `json:"name"`
 	Email   string   `json:"email"`
@@ -9,6 +8,12 @@ type UserInfo struct {
 	Picture string   `json:"picture"`
 }
 
-type UserRecs struct {
-	Users []UserInfo `json:"users"`
+type UserRecs map[string]UserInfo
+
+func (u UserRecs) GetUser(id string) *UserInfo {
+	user, exist := u[id]
+	if !exist {
+		return nil
+	}
+	return &user
 }

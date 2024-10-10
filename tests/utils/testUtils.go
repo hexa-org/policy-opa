@@ -69,7 +69,7 @@ func SetUpMockServer(key string, path string, mockOidcMode bool) *http.Server {
 func GenerateBearerToken(key string, subject string, expires time.Time) (string, error) {
 	now := time.Now()
 	claims := &opaTools.HexaClaims{
-		&jwt.RegisteredClaims{
+		RegisteredClaims: &jwt.RegisteredClaims{
 			Issuer:    "testIssuer",
 			Audience:  []string{"testAudience"},
 			ExpiresAt: &jwt.NumericDate{expires},
@@ -77,7 +77,7 @@ func GenerateBearerToken(key string, subject string, expires time.Time) (string,
 			NotBefore: &jwt.NumericDate{now},
 			IssuedAt:  &jwt.NumericDate{now},
 		},
-		"bearer abc",
+		Roles: "bearer abc",
 	}
 
 	t := jwt.New(jwt.GetSigningMethod("HS256"))

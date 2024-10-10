@@ -37,7 +37,7 @@ const policyIDQL = `
 }
 `
 
-func NewDecisionHandler() *opaHandler.RegoHandler {
+func NewDecisionHandler() (*opaHandler.RegoHandler, error) {
 	bundlesDir := "/tmp/bundles"
 	_, err := os.Stat(filepath.Join(bundlesDir, "bundle"))
 	if os.IsNotExist(err) {
@@ -45,15 +45,15 @@ func NewDecisionHandler() *opaHandler.RegoHandler {
 		createInitialBundle(bundlesDir)
 	} else {
 		// do this so we can edit the rego to test
-		os.WriteFile(filepath.Join(bundlesDir, "bundle", "data.json"), []byte(policyIDQL), 0644)
+		_ = os.WriteFile(filepath.Join(bundlesDir, "bundle", "data.json"), []byte(policyIDQL), 0644)
 	}
 
 	return opaHandler.NewRegoHandler(bundlesDir)
 }
 
 func createInitialBundle(bundlePath string) {
-	os.RemoveAll(bundlePath)
-	os.MkdirAll(bundlePath, 0755)
+	_ = os.RemoveAll(bundlePath)
+	_ = os.MkdirAll(bundlePath, 0755)
 	bundleBuffer, err := openpolicyagent.MakeHexaBundle([]byte(policyIDQL))
 	if err != nil {
 		config.ServerLog.Fatalf("unexpected error creating and initializing Hexa Bundle: %s", err)
@@ -64,8 +64,9 @@ func createInitialBundle(bundlePath string) {
 }
 
 func TestIDQL(t *testing.T) {
-	os.Setenv(decisionsupportproviders.EnvOpaDebug, "debug")
-	regoHandler := NewDecisionHandler()
+	_ = os.Setenv(decisionsupportproviders.EnvOpaDebug, "debug")
+	regoHandler, err := NewDecisionHandler()
+	assert.NoError(t, err)
 
 	claims := make(map[string]interface{})
 	claims["email"] = "rick@the-citadel.com"
