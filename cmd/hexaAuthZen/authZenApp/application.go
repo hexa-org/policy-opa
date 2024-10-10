@@ -10,7 +10,7 @@ import (
 	"github.com/hexa-org/policy-mapper/pkg/oauth2support"
 	"github.com/hexa-org/policy-mapper/pkg/tokensupport"
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/config"
-	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/decisionHandler"
+	"github.com/hexa-org/policy-opa/pkg/authZenSupport"
 )
 
 // var az *AuthZenApp
@@ -20,7 +20,7 @@ type AuthZenApp struct {
 	Router          *HttpRouter
 	BaseUrl         *url.URL
 	HostName        string
-	Decision        *decisionHandler.DecisionHandler
+	Decision        *authZenSupport.DecisionHandler
 	bundleDir       string
 	TokenAuthorizer *oauth2support.ResourceJwtAuthorizer
 }
@@ -35,7 +35,7 @@ func (az *AuthZenApp) HealthCheck() bool {
 }
 
 func StartServer(addr string, baseUrlString string) *AuthZenApp {
-
+	var err error
 	az := AuthZenApp{}
 
 	authMode := os.Getenv(tokensupport.EnvTknEnforceMode)
@@ -44,7 +44,7 @@ func StartServer(addr string, baseUrlString string) *AuthZenApp {
 		if issuerName == "" {
 			issuerName = "authzen"
 		}
-		var err error
+
 		az.TokenAuthorizer, err = oauth2support.NewResourceJwtAuthorizer()
 		if err != nil {
 			config.ServerLog.Println(fmt.Sprintf("FATAL Loading Token Validator: %s", err.Error()))
@@ -60,7 +60,10 @@ func StartServer(addr string, baseUrlString string) *AuthZenApp {
 		az.bundleDir = config.DefBundlePath
 	}
 
-	az.Decision = decisionHandler.NewDecisionHandler()
+	az.Decision, err = authZenSupport.NewDecisionHandler()
+	if err != nil {
+		config.ServerLog.Fatal(fmt.Sprintf("FATAL Error loading decision handler: %s", err))
+	}
 
 	router := NewRouter(&az)
 	az.Router = router
@@ -80,7 +83,7 @@ func StartServer(addr string, baseUrlString string) *AuthZenApp {
 	}
 
 	var baseUrl *url.URL
-	var err error
+
 	if baseUrlString == "" {
 		baseUrl, _ = url.Parse("http://" + server.Addr + "/")
 	} else {

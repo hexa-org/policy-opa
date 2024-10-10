@@ -14,8 +14,8 @@ import (
 	"github.com/hexa-org/policy-mapper/pkg/tokensupport"
 	"github.com/hexa-org/policy-opa/api/infoModel"
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/config"
-	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/decisionHandler"
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/userHandler"
+	"github.com/hexa-org/policy-opa/pkg/authZenSupport"
 	"github.com/hexa-org/policy-opa/pkg/bundleTestSupport"
 	"github.com/hexa-org/policy-opa/pkg/compressionsupport"
 	"github.com/stretchr/testify/assert"
@@ -56,7 +56,7 @@ func TestUploadBundle(t *testing.T) {
 
 	_ = os.Setenv(config.EnvBundleDir, bundleDir)
 	az := AuthZenApp{bundleDir: bundleDir}
-	az.Decision = decisionHandler.NewDecisionHandler()
+	az.Decision, _ = authZenSupport.NewDecisionHandler()
 
 	bundleDir2 := bundleTestSupport.InitTestBundlesDir(nil)
 	req, err := bundleTestSupport.PrepareBundleUploadRequest(bundleTestSupport.GetTestBundlePath(bundleDir2))
@@ -68,13 +68,31 @@ func TestUploadBundle(t *testing.T) {
 
 }
 
+func TestBadPolicyStartup(t *testing.T) {
+
+	policyPath := filepath.Join(bundleTestSupport.GetTestBundlePath("./test/badDataBundle"), "bundle", "data.json")
+	databytes, err := os.ReadFile(policyPath)
+	assert.NoError(t, err, "Check no error reading policy")
+	bundleDir := bundleTestSupport.InitTestBundlesDir(databytes)
+	defer bundleTestSupport.Cleanup(bundleDir)
+	_ = os.Setenv(config.EnvBundleDir, bundleDir)
+
+	az := AuthZenApp{bundleDir: bundleDir}
+	az.Decision, err = authZenSupport.NewDecisionHandler()
+	assert.Error(t, err, "unexpected end of JSON input")
+	assert.Nil(t, az.Decision)
+
+}
+
 func TestUploadBadBundle(t *testing.T) {
 	bundleDir := bundleTestSupport.InitTestBundlesDir(nil)
 	defer bundleTestSupport.Cleanup(bundleDir)
 
+	var err error
 	_ = os.Setenv(config.EnvBundleDir, bundleDir)
 	az := AuthZenApp{bundleDir: bundleDir}
-	az.Decision = decisionHandler.NewDecisionHandler()
+	az.Decision, err = authZenSupport.NewDecisionHandler()
+	assert.Nil(t, err)
 
 	req, err := bundleTestSupport.PrepareBundleUploadRequest(bundleTestSupport.GetTestBundlePath("./test/badRegoBundle"))
 	assert.NoError(t, err, "No error creating request")
@@ -100,9 +118,9 @@ func TestHandleEvaluation(t *testing.T) {
 	defer bundleTestSupport.Cleanup(bundleDir)
 
 	_ = os.Setenv(config.EnvBundleDir, bundleDir)
-	_ = os.Setenv(config.EnvAuthUserPipFile, userHandler.DefaultUserPipFile)
+	_ = os.Setenv(config.EnvAuthUserPipFile, userHandler.DefaultUserPipFile())
 	az := AuthZenApp{bundleDir: bundleDir}
-	az.Decision = decisionHandler.NewDecisionHandler()
+	az.Decision, _ = authZenSupport.NewDecisionHandler()
 
 	body := infoModel.EvaluationItem{
 		Subject: &infoModel.SubjectInfo{Id: "CiRmZDM2MTRkMy1jMzlhLTQ3ODEtYjdiZC04Yjk2ZjVhNTEwMGQSBWxvY2Fs"},
@@ -132,9 +150,9 @@ func TestHandleQueryEvaluation(t *testing.T) {
 	defer bundleTestSupport.Cleanup(bundleDir)
 
 	_ = os.Setenv(config.EnvBundleDir, bundleDir)
-	_ = os.Setenv(config.EnvAuthUserPipFile, userHandler.DefaultUserPipFile)
+	_ = os.Setenv(config.EnvAuthUserPipFile, userHandler.DefaultUserPipFile())
 	az := AuthZenApp{bundleDir: bundleDir}
-	az.Decision = decisionHandler.NewDecisionHandler()
+	az.Decision, _ = authZenSupport.NewDecisionHandler()
 
 	defaultItem := infoModel.EvaluationItem{
 		Subject: &infoModel.SubjectInfo{Id: "CiRmZDM2MTRkMy1jMzlhLTQ3ODEtYjdiZC04Yjk2ZjVhNTEwMGQSBWxvY2Fs"},
@@ -179,9 +197,9 @@ func TestHandleSecurity(t *testing.T) {
 	assert.NoError(t, err, "No error generating token")
 
 	_ = os.Setenv(config.EnvBundleDir, bundleDir)
-	_ = os.Setenv(config.EnvAuthUserPipFile, userHandler.DefaultUserPipFile)
+	_ = os.Setenv(config.EnvAuthUserPipFile, userHandler.DefaultUserPipFile())
 	az := AuthZenApp{bundleDir: bundleDir}
-	az.Decision = decisionHandler.NewDecisionHandler()
+	az.Decision, _ = authZenSupport.NewDecisionHandler()
 	_ = os.Unsetenv(oauth2support.EnvOAuthJwksUrl)
 	_ = os.Setenv(oauth2support.EnvTknPubKeyFile, tokenHandler.PublicKeyPath)
 	_ = os.Setenv(oauth2support.EnvJwtKid, "authzen")

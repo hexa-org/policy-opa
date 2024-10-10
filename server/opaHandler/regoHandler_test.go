@@ -31,7 +31,7 @@ func TestOpaHandler(t *testing.T) {
 	user := pip.GetUser("CiRmZDM2MTRkMy1jMzlhLTQ3ODEtYjdiZC04Yjk2ZjVhNTEwMGQSBWxvY2Fs")
 	assert.NotNil(t, user, "Get User")
 
-	handler := NewRegoHandler(bundleDir)
+	handler, _ := NewRegoHandler(bundleDir)
 
 	claims := make(map[string]interface{})
 	claims["email"] = user.Email
@@ -115,4 +115,18 @@ func TestOpaHandler(t *testing.T) {
 	assert.Greater(t, len(opaRes.ActionRights), 0, "At least one right")
 
 	assert.True(t, handler.HealthCheck(), "Check healthcheck works")
+}
+
+func TestOpaHandler_StartupValidateBundle(t *testing.T) {
+	policyPath := filepath.Join(bundleTestSupport.GetTestBundlePath("./test/badDataBundle"), "bundle", "data.json")
+	databytes, err := os.ReadFile(policyPath)
+	assert.NoError(t, err, "Check no error reading policy")
+	bundleDir := bundleTestSupport.InitTestBundlesDir(databytes)
+	defer bundleTestSupport.Cleanup(bundleDir)
+	_ = os.Setenv(config.EnvBundleDir, bundleDir)
+
+	handler, err := NewRegoHandler(bundleDir)
+	assert.Error(t, err, "unexpected end of JSON input")
+	assert.Nil(t, handler, "Should be nil due to error")
+
 }

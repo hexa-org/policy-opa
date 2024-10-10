@@ -11,8 +11,10 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
+	"github.com/hexa-org/policy-mapper/pkg/hexapolicysupport"
 	"github.com/hexa-org/policy-opa/api/infoModel"
 	"github.com/hexa-org/policy-opa/client/hexaOpaClient"
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/config"
@@ -41,6 +43,22 @@ func (h *RegoHandler) HealthCheck() bool {
 		return false
 	}
 	return eval != nil
+}
+
+func (h *RegoHandler) ValidateBundle() error {
+	dataFile := filepath.Join(h.bundleDir, "bundle", "data.json")
+
+	val, err := hexapolicysupport.ParsePolicyFile(dataFile)
+	if err != nil {
+		return err
+	}
+	if val == nil {
+		return errors.New("no parseable policy")
+	}
+	if len(val) == 0 {
+		return errors.New("no policies found")
+	}
+	return err
 }
 
 func (h *RegoHandler) ReloadRego() error {
@@ -94,7 +112,7 @@ func (h *RegoHandler) ReloadRego() error {
 	return nil
 }
 
-func NewRegoHandler(bundleDir string) *RegoHandler {
+func NewRegoHandler(bundleDir string) (*RegoHandler, error) {
 
 	if bundleDir == "" {
 		// If a relative path is used, then join with the current executable path...
@@ -106,11 +124,16 @@ func NewRegoHandler(bundleDir string) *RegoHandler {
 		bundleDir: bundleDir,
 	}
 
-	err := handler.ReloadRego()
+	// this checks that the policy is parsable Hexa IDQL
+	err := handler.ValidateBundle()
 	if err != nil {
-		panic(err.Error())
+		return nil, err
 	}
-	return handler
+
+	err = handler.ReloadRego()
+
+	return handler, err
+
 }
 
 func (h *RegoHandler) CheckBundleDir() error {

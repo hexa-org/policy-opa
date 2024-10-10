@@ -327,7 +327,7 @@ func RunRego(t *testing.T, inputByte []byte, dataPath string) *decisionsupportpr
 		}
 	}(bundleDir)
 
-	regoHandler := opaHandler.NewRegoHandler(bundleDir)
+	regoHandler, _ := opaHandler.NewRegoHandler(bundleDir)
 
 	var input infoModel.AzInfo
 	err = json.Unmarshal(inputByte, &input)

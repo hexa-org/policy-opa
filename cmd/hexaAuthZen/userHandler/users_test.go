@@ -12,7 +12,7 @@ import (
 
 func TestUsers(t *testing.T) {
 	_, file, _, _ := runtime.Caller(0)
-	userPath := filepath.Join(file, "../", DefaultUserPipFile)
+	userPath := DefaultUserPipFile()
 	wrongPath := filepath.Join(file, "../", "../resources", "wrong.json")
 
 	badFile := filepath.Join(file, "../test/badUser.json")

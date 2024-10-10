@@ -1,4 +1,4 @@
-package decisionHandler
+package authZenSupport
 
 import (
 	"encoding/json"
@@ -23,9 +23,9 @@ func TestHandleEvaluation(t *testing.T) {
 	defer bundleTestSupport.Cleanup(bundleDir)
 
 	_ = os.Setenv(config.EnvBundleDir, bundleDir)
-	_ = os.Setenv(config.EnvAuthUserPipFile, userHandler.DefaultUserPipFile)
+	_ = os.Setenv(config.EnvAuthUserPipFile, userHandler.DefaultUserPipFile())
 
-	decisionHandler := NewDecisionHandler()
+	decisionHandler, _ := NewDecisionHandler()
 
 	body := infoModel.EvaluationItem{
 		Subject: &infoModel.SubjectInfo{Id: "CiRmZDM2MTRkMy1jMzlhLTQ3ODEtYjdiZC04Yjk2ZjVhNTEwMGQSBWxvY2Fs"},
@@ -48,8 +48,8 @@ func TestHandleQueryEvaluation(t *testing.T) {
 	defer bundleTestSupport.Cleanup(bundleDir)
 
 	_ = os.Setenv(config.EnvBundleDir, bundleDir)
-	_ = os.Setenv(config.EnvAuthUserPipFile, userHandler.DefaultUserPipFile)
-	decisionHandler := NewDecisionHandler()
+	_ = os.Setenv(config.EnvAuthUserPipFile, userHandler.DefaultUserPipFile())
+	decisionHandler, _ := NewDecisionHandler()
 
 	items := []infoModel.EvaluationItem{
 		{
@@ -87,8 +87,8 @@ func TestHealthCheck(t *testing.T) {
 	defer bundleTestSupport.Cleanup(bundleDir)
 
 	_ = os.Setenv(config.EnvBundleDir, bundleDir)
-	_ = os.Setenv(config.EnvAuthUserPipFile, userHandler.DefaultUserPipFile)
-	decisionHandler := NewDecisionHandler()
+	_ = os.Setenv(config.EnvAuthUserPipFile, userHandler.DefaultUserPipFile())
+	decisionHandler, _ := NewDecisionHandler()
 
 	assert.True(t, decisionHandler.HealthCheck())
 }
@@ -98,8 +98,8 @@ func TestReload(t *testing.T) {
 	defer bundleTestSupport.Cleanup(bundleDir)
 
 	_ = os.Setenv(config.EnvBundleDir, bundleDir)
-	_ = os.Setenv(config.EnvAuthUserPipFile, userHandler.DefaultUserPipFile)
-	decisionHandler := NewDecisionHandler()
+	_ = os.Setenv(config.EnvAuthUserPipFile, userHandler.DefaultUserPipFile())
+	decisionHandler, _ := NewDecisionHandler()
 
 	assert.Nil(t, decisionHandler.ProcessUploadOpa())
 	// Note: the handlers_test will do the  negative test.
@@ -156,15 +156,15 @@ func runAuthZenSet(t *testing.T, name string, file string, decisionHandler *Deci
 
 func TestAuthZen(t *testing.T) {
 	_, file, _, _ := runtime.Caller(0)
-	authzenPolicy := filepath.Join(file, "../../resources/data.json")
+	authzenPolicy := filepath.Join(file, "../resources/data.json")
 
 	tests := []struct {
 		Name string
 		File string
 	}{
-		{Name: "1.0-Preview", File: filepath.Join(file, "../../resources/decisions-1.0-preview.json")},
-		{Name: "1.0-implementers-draft", File: filepath.Join(file, "../../resources/decisions-1.0-implementers-draft.json")},
-		{Name: "1.1-preview", File: filepath.Join(file, "../../resources/decisions-1.1-preview.json")},
+		{Name: "1.0-Preview", File: filepath.Join(file, "../resources/decisions-1.0-preview.json")},
+		{Name: "1.0-implementers-draft", File: filepath.Join(file, "../resources/decisions-1.0-implementers-draft.json")},
+		{Name: "1.1-preview", File: filepath.Join(file, "../resources/decisions-1.1-preview.json")},
 	}
 
 	policyBytes, err := os.ReadFile(authzenPolicy)
@@ -174,12 +174,26 @@ func TestAuthZen(t *testing.T) {
 	defer bundleTestSupport.Cleanup(bundleDir)
 
 	_ = os.Setenv(config.EnvBundleDir, bundleDir)
-	_ = os.Setenv(config.EnvAuthUserPipFile, userHandler.DefaultUserPipFile)
-	decisionHandler := NewDecisionHandler()
+	_ = os.Setenv(config.EnvAuthUserPipFile, userHandler.DefaultUserPipFile())
+	decisionHandler, _ := NewDecisionHandler()
 
 	for _, test := range tests {
 		fmt.Printf(fmt.Sprintf("Running tests for: %s", test.Name))
 		runAuthZenSet(t, test.Name, test.File, decisionHandler)
 	}
+}
+
+func TestAuthZen_BadPolicy(t *testing.T) {
+	policyPath := filepath.Join(bundleTestSupport.GetTestBundlePath("./test/badDataBundle"), "bundle", "data.json")
+	databytes, err := os.ReadFile(policyPath)
+	assert.NoError(t, err, "Check no error reading policy")
+	bundleDir := bundleTestSupport.InitTestBundlesDir(databytes)
+	defer bundleTestSupport.Cleanup(bundleDir)
+	_ = os.Setenv(config.EnvBundleDir, bundleDir)
+	_ = os.Setenv(config.EnvAuthUserPipFile, userHandler.DefaultUserPipFile())
+
+	handler, err := NewDecisionHandler()
+	assert.Error(t, err, "unexpected end of JSON input")
+	assert.Nil(t, handler, "Should be nil due to error")
 
 }

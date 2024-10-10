@@ -1,5 +1,6 @@
-// Package decisionHandler maps between AuthZen requests and the HexaOPA IDQL based engine
-package decisionHandler
+// Package decisionHandler maps between AuthZen requests and calls opaHandler to process decisions. decisionHandler can
+// be used as an SDK to run an embedded Hexa IDQL PDP.
+package authZenSupport
 
 import (
 	"bytes"
@@ -32,7 +33,13 @@ type DecisionHandler struct {
 	resultDetail string
 }
 
-func NewDecisionHandler() *DecisionHandler {
+// NewDecisionHandler is intended for use in a server (e.g. cmd/hexaAuthZen) where an http method handler requests decision handler
+// to process decisions. Configuration and policy are handled through environment variables: AUTHZEN_BUNDLE_DIR, AUTHZEN_RESPONSE_DETAIL.
+// On invocation, this method will attempt to locate and parse IDQL contained in data.json. If the JSON is not parsable or IDQL cannot be parsed
+// an error is returned as the HexaOPA engine will not be able to process decisions. If `data.json` contains no policies, a warning is issued
+// to the server log. This scenario assumes the bundle will be updated later and `ProcessUploadOpa` will be called. If no bundle directory is detected,
+// An initial default bundle will be created (e.g. to support demos) using the bundle embedded in:
+func NewDecisionHandler() (*DecisionHandler, error) {
 	detail := os.Getenv(config.EnvAuthZenDecDetail)
 	if strings.EqualFold(detail, ResultDetail) {
 		detail = ResultDetail
@@ -57,16 +64,21 @@ func NewDecisionHandler() *DecisionHandler {
 		createInitialBundle(bundlesDir)
 	}
 
+	handler, err := opaHandler.NewRegoHandler(bundlesDir)
+	if err != nil {
+		return nil, err
+	}
+
 	return &DecisionHandler{
 		pip:          userHandler.NewUserPIP(""),
-		regoHandler:  opaHandler.NewRegoHandler(bundlesDir),
+		regoHandler:  handler,
 		resultDetail: detail,
-	}
+	}, nil
 }
 
 func createInitialBundle(bundlePath string) {
 	_, file, _, _ := runtime.Caller(0)
-	basePolicy := filepath.Join(filepath.Dir(file), config.BaseAuthZenPolicy)
+	basePolicy := filepath.Join(filepath.Dir(file), "../..", config.DemoAuthZenPolicy)
 	dataBytes, err := os.ReadFile(basePolicy)
 	if err != nil {
 		config.ServerLog.Fatalf("unable to read default Authzen Policy: %s", err)
@@ -80,6 +92,8 @@ func createInitialBundle(bundlePath string) {
 	_ = compressionsupport.UnTarToPath(bytes.NewReader(gzip), bundlePath)
 }
 
+// ProcessUploadOpa causes the OPA engine to reload policy and rego instructions from the bundle directory (see config.EnvBundleDir).
+// To update the HexaOPA decision engine, update the bundle directory contents and call this method to reload.
 func (d *DecisionHandler) ProcessUploadOpa() error {
 	return d.regoHandler.ReloadRego()
 }
@@ -130,6 +144,8 @@ func (d *DecisionHandler) createInputObjectSimple(authRequest infoModel.Evaluati
 
 }
 
+// HealthCheck actively calls the HexaOPA engine for a decision based on empty input. As long as an error is not
+// thrown, true is returned. This is intended to check that the OPA instance is running.
 func (d *DecisionHandler) HealthCheck() bool {
 	return d.regoHandler != nil && d.regoHandler.HealthCheck()
 }

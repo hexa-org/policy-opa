@@ -18,7 +18,7 @@ const (
 	EndpointGetOpaBundles         string = "/bundles/bundle.tar.gz"
 	HeaderRequestId               string = "X-Request-ID"
 	DefBundlePath                 string = "/home/authZen/bundles"
-	BaseAuthZenPolicy             string = "../resources/data.json"
+	DemoAuthZenPolicy             string = "/deployments/authZen/data.json"
 )
 
 var ServerLog = log.New(os.Stdout, "HEXA-AUTHZ: ", log.Ldate|log.Ltime)

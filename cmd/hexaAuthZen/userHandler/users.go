@@ -12,9 +12,14 @@ import (
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/config"
 )
 
-const DefaultUserPipFile string = "../resources/users.json"
+const defaultUserPipFile string = "../resources/users.json"
 
 var ulog = log.New(os.Stdout, "USERPIP: ", log.Ldate|log.Ltime)
+
+func DefaultUserPipFile() string {
+	_, file, _, _ := runtime.Caller(0)
+	return filepath.Join(file, "../", defaultUserPipFile)
+}
 
 // NewUserPIP Loads the AuthZen users and returns a UserIP map. If file is not found nil is returned.
 func NewUserPIP(userPath string) *infoModel.UserRecs {
@@ -23,9 +28,7 @@ func NewUserPIP(userPath string) *infoModel.UserRecs {
 	if userPath == "" {
 		loadFile, exists = os.LookupEnv(config.EnvAuthUserPipFile)
 		if !exists {
-			_, file, _, _ := runtime.Caller(0)
-			userPath := filepath.Join(file, "../", DefaultUserPipFile)
-			loadFile = userPath
+			loadFile = DefaultUserPipFile()
 		}
 	}
 	userBytes, err := os.ReadFile(loadFile)

@@ -78,7 +78,7 @@ func (s *testSuite) SetupSuite() {
 
 	fmt.Println("Starting Authzen server...")
 	_ = os.Setenv(config.EnvBundleDir, s.bundleDir)
-	_ = os.Setenv(config.EnvAuthUserPipFile, userHandler.DefaultUserPipFile)
+	_ = os.Setenv(config.EnvAuthUserPipFile, userHandler.DefaultUserPipFile())
 	_ = os.Setenv(tokensupport.EnvTknEnforceMode, tokensupport.ModeEnforceAll)
 	listener, _ := net.Listen("tcp", "localhost:0")
 	s.addr = listener.Addr().String()
