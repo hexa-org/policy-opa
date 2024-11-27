@@ -4,10 +4,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"path/filepath"
 	"runtime"
-
-	"os"
 	"testing"
 
 	"github.com/hexa-org/policy-opa/api/infoModel"
@@ -181,6 +180,106 @@ func TestAuthZen(t *testing.T) {
 		fmt.Printf(fmt.Sprintf("Running tests for: %s", test.Name))
 		runAuthZenSet(t, test.Name, test.File, decisionHandler)
 	}
+}
+
+func TestEmptyActionAndObject(t *testing.T) {
+
+	policies := `{
+  "policies": [
+    {
+      "meta": {
+        "policyId": "GetAnyAction",
+        "version": "0.7",
+        "description": "Get the list of todos. Always returns true for every user??"
+      },
+      "subjects": [
+        "anyAuthenticated"
+      ],
+      "actions": [
+      ],
+      "object": "todo"
+    },
+    {
+      "meta": {
+        "policyId": "NoObject",
+        "version": "0.7",
+        "description": "Test that missing object matches"
+      },
+      "subjects": [
+        "anyAuthenticated"
+      ],
+      "actions": [
+        "can_read_user"
+      ]
+    },
+    {
+      "meta": {
+        "policyId": "EmptyObject",
+        "version": "0.7",
+        "description": "Test that empty object can match"
+      },
+      "subjects": [
+        "anyAuthenticated"
+      ],
+      "actions": [
+        "can_read_user"
+      ],
+      "object": "todo"
+    },
+    {
+      "meta": {
+        "policyId": "ShouldNotMatch",
+        "version": "0.7",
+        "description": "This rule should not match for this test"
+      },
+      "subjects": [
+        "anyAuthenticated"
+      ],
+      "actions": [
+        "get_todo"
+      ],
+      "object": "todo"
+    }
+  ]
+}`
+
+	bundleDir := bundleTestSupport.InitTestBundlesDir([]byte(policies))
+
+	testItemStr := `{
+      "request": {
+        "subject": {
+          "type": "user",
+          "id": "CiRmZDA2MTRkMy1jMzlhLTQ3ODEtYjdiZC04Yjk2ZjVhNTEwMGQSBWxvY2Fs"
+        },
+        "action": {
+          "name": "can_read_user"
+        },
+        "resource": {
+          "type": "user",
+          "id": "beth@the-smiths.com"
+        }
+      },
+      "expected": true
+    }`
+
+	var testItem testItem
+	err := json.Unmarshal([]byte(testItemStr), &testItem)
+	assert.NoError(t, err)
+
+	defer bundleTestSupport.Cleanup(bundleDir)
+
+	_ = os.Setenv(config.EnvBundleDir, bundleDir)
+	_ = os.Setenv(config.EnvAuthUserPipFile, userHandler.DefaultUserPipFile())
+
+	_ = os.Setenv(config.EnvAuthZenDecDetail, ResultDetail)
+	decisionHandler, _ := NewDecisionHandler()
+
+	input := decisionHandler.createInputObjectSimple(testItem.Request, &[]string{"todo"})
+
+	results, err := decisionHandler.regoHandler.Evaluate(input)
+	assert.NoError(t, err)
+	result := decisionHandler.regoHandler.ProcessResults(results)
+	assert.Len(t, result.AllowSet, 3)
 }
 
 func TestAuthZen_BadPolicy(t *testing.T) {

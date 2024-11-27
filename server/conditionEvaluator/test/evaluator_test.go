@@ -35,38 +35,39 @@ var input = `
 	"dlevel" : 4.1
 }`
 
-type testType struct {
-	Filter    string
-	Result    bool
-	ErrorTest string
-}
-
-var tests = []testType{
-	{"a in subject.roles", true, ""},
-	{"\"b\" in subject.roles", true, ""},
-	{"d in subject.roles", false, ""},
-	{"bleh lt dlevel", false, "invalid number comparison"},
-	{"subject.sub pr", true, ""},
-	{"testUser eq subject.sub", true, ""},
-	{"req.ip sw \"192.0.0.1\"", false, ""},
-	{"req.param.a eq \"b\"", true, ""},
-	{"req.param.c eq \"b\"", false, ""},
-	{"req.param.c gt \"b\"", true, ""},
-	{"subject.sub eq testUser and req.param.c gt \"b\"", true, ""},
-	{"a.b eq testNoAttribute and req.param.c gt \"b\"", false, ""},
-	{"level eq 4", true, ""},
-	{"level ne 4", false, ""},
-	{"4 lt dlevel", true, ""},
-	{"1.1 lt dlevel", true, ""},
-	{"dlevel lt 100", true, ""},
-	{"subject.roles co bleh or (subject.roles co b and level eq 4)", true, ""},
-	{"subject.roles co a or (subject.roles co bleh and level eq 4)", true, ""},
-	{"subject.roles co bleh or (subject.roles co b and level eq 5)", false, ""},
-}
-
 func TestEvaluate(t *testing.T) {
 	fmt.Println("Input: ")
 	fmt.Println(input)
+
+	tests := []struct {
+		Filter    string
+		Result    bool
+		ErrorTest string
+	}{
+		{"\"a\" in subject.roles", true, ""},
+		{"\"b\" in subject.roles", true, ""},
+		{"\"d\" in subject.roles", false, ""},
+		{"\"bleh\" lt dlevel", false, "invalid number comparison"},
+		{"subject.sub pr", true, ""},
+		{"subject.missing pr", false, ""},
+		{"\"testUser\" eq subject.sub", true, ""},
+		{"req.ip sw \"192.0.0.1\"", false, ""},
+		{"req.ip sw \"127.0.0.1\"", true, ""},
+		{"req.param.a eq \"b\"", false, ""},
+		{"req.param.a co \"b\"", true, ""},
+		{"req.param.c co \"b\"", false, ""},
+		{"subject.sub eq \"testUser\" and req.param.c co \"d\"", true, ""},
+		{"\"a.b\" eq testNoAttribute and req.param.c co \"b\"", false, ""},
+		{"level eq 4", true, ""},
+		{"level ne 4", false, ""},
+		{"4 lt dlevel", true, ""},
+		{"1.1 lt dlevel", true, ""},
+		{"dlevel lt 100", true, ""},
+		{"subject.roles co \"bleh\" or (subject.roles co \"b\" and level eq 4)", true, ""},
+		{"subject.roles co \"a\" or (subject.roles co \"bleh\" and level eq 4)", true, ""},
+		{"subject.roles co \"bleh\" or (subject.roles co \"b\" and level eq 5)", false, ""},
+		{"subject.roles co [\"b\",\"c\"]", true, ""},
+	}
 
 	for k, test := range tests {
 		t.Run(test.Filter, func(t *testing.T) {

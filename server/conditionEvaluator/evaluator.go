@@ -4,12 +4,11 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"strconv"
-
-	"strings"
+	"reflect"
 
 	"github.com/hexa-org/policy-mapper/pkg/hexapolicy/conditions"
 	filter "github.com/hexa-org/policy-mapper/pkg/hexapolicy/conditions/parser"
+	"github.com/hexa-org/policy-mapper/pkg/hexapolicy/types"
 
 	// "github.com/hexa-org/policy-mapper/policySupport/conditions"
 	// "github.com/hexa-org/policy-mapper/policySupport/filter"
@@ -29,24 +28,65 @@ func Evaluate(expression string, input string) (bool, error) {
 	return evalWalk(ast, input)
 }
 
-func getAttributeValue(input string, path string) gjson.Result {
+func convertGjsonToValue(res gjson.Result) types.Value {
+	var val types.Value
+	switch res.Type {
+	case gjson.Number:
+		val, _ = types.NewNumeric(res.String())
+		return val
+	case gjson.String:
+		// This could be a date or string
+		val = types.NewString(res.String())
+		return val
+
+	case gjson.False, gjson.True:
+		return types.NewBoolean(res.String())
+	case gjson.Null:
+		return nil
+	case gjson.JSON:
+		if res.IsArray() {
+			var values []types.ComparableValue
+			for _, gsonValue := range res.Array() {
+				aVal := convertGjsonToValue(gsonValue)
+				switch v := aVal.(type) {
+				case types.ComparableValue:
+					values = append(values, v)
+				default:
+					// value is ignored
+					fmt.Println(fmt.Sprintf("Input value contains a nested array or object within an array: %s", res.String()))
+				}
+
+			}
+			return types.NewArray(values)
+		}
+		fmt.Println(fmt.Sprintf("Unexpected JSON comparison object (type %s): %s", res.Type.String(), res.String()))
+		return nil
+	}
+	fmt.Println(fmt.Sprintf("Unexpected comparison object (type %s): %s", res.Type.String(), res.String()))
+	return nil
+}
+
+func getAttributeValue(input string, value types.Value) types.Value {
+	if value == nil {
+		return nil
+	} // This typically happens with a presence (PR) expression
+
 	// if it is a quoted value, just return it
-	if strings.HasPrefix(path, "\"") && strings.HasSuffix(path, "\"") {
-		return gjson.Result{
-			Type: gjson.String,
-			Str:  path[1 : len(path)-1],
+	switch value := value.(type) {
+	case types.Entity:
+		if value.IsPath() {
+			// lookup the path from the input
+			res := gjson.Get(input, value.String())
+			if res.Exists() {
+				return convertGjsonToValue(res)
+			}
+			// if it doesn't exist, put in an empty placeholder
+			return types.NewEmptyValue(value)
 		}
+		return value // return the entity
+	default:
+		return value
 	}
-
-	res := gjson.Get(input, path)
-
-	if res.Type == gjson.Null {
-		return gjson.Result{
-			Type: gjson.String,
-			Str:  path,
-		}
-	}
-	return res
 }
 
 func evalWalk(e filter.Expression, input string) (bool, error) {
@@ -88,173 +128,130 @@ func evalWalk(e filter.Expression, input string) (bool, error) {
 	return false, errors.New(errMsg)
 }
 
-func evalCompareNil(compValue interface{}, op filter.CompareOperator) bool {
-	switch op {
-	case filter.EQ:
-		return compValue == nil || compValue == ""
-	case filter.GT, filter.LT, filter.GE, filter.LE, filter.SW, filter.EW, filter.CO, filter.IN:
-		return false
-	case filter.NE:
-		return compValue != nil && compValue != ""
-	case filter.PR:
-		return false
-	}
-	fmt.Println("Unexpected compare operator for nil")
-	return false
-}
+var ErrorIncompatible = errors.New("incompatible comparison types")
 
-// SafeFloat returns a float value and indicates true if comparable as a float.
-func safeFloat(result gjson.Result) (float64, bool) {
-	switch result.Type {
-	default:
-		return 0, false
-	case gjson.True:
-		return 1, true
-	case gjson.String:
-		n, err := strconv.ParseFloat(result.Str, 64)
-		if err != nil {
-			return n, false
+func compareArray(left types.Value, right types.Value, op filter.CompareOperator) (bool, error) {
+	switch lVal := left.(type) {
+	case types.Array:
+		switch op {
+		case filter.EQ:
+			switch rVal := right.(type) {
+			case types.Array:
+				return reflect.DeepEqual(lVal, rVal), nil
+			default:
+				return false, nil
+			}
+		case filter.NE:
+			switch rVal := right.(type) {
+			case types.Array:
+				return !reflect.DeepEqual(lVal, rVal), nil
+			default:
+				return true, nil
+			}
+		case filter.LT, filter.LE, filter.GT, filter.GE, filter.PR:
+			return false, errors.New("invalid comparison for an array")
+		case filter.IN:
+			return compareArray(right, left, filter.CO) // reverse the operands and do a contains test
+		case filter.CO:
+			switch rVal := right.(type) {
+			case types.Array:
+				// All values in the right need to be present in the left
+				for _, rValue := range rVal.Value().([]types.ComparableValue) {
+					found := false
+					for _, lValue := range lVal.Value().([]types.ComparableValue) {
+						match, notOk := types.CompareValues(lValue, rValue, types.EQ)
+						if notOk {
+							return false, ErrorIncompatible
+						}
+						if match {
+							found = true
+							break
+						}
+					}
+					if !found {
+						return false, nil
+					}
+				}
+				return true, nil
+
+			case types.ComparableValue:
+				found := false
+				for _, aValue := range lVal.Value().([]types.ComparableValue) {
+					switch compItem := aValue.(type) {
+					case types.ComparableValue:
+						match, notOk := types.CompareValues(compItem, rVal, types.EQ)
+						if notOk {
+							return false, ErrorIncompatible
+						}
+						if match {
+							found = true
+						}
+					default:
+						// if it is an entity we don't care
+						// arrays of arrays not supported yet
+					}
+					if found {
+						break
+					}
+				}
+				return found, nil
+			default:
+				return false, ErrorIncompatible
+			}
 		}
-		return n, true
-	case gjson.Number:
-		return result.Num, true
+	case types.ComparableValue:
+		// left is comparable so right is array
+		if op != filter.IN {
+			return false, ErrorIncompatible
+		}
+		return compareArray(right, left, filter.CO)
 	}
+	return false, ErrorIncompatible
 }
 
 /*
 evalCompareValues performs the binary logic compare operation specified by the operator. note that the compare value
 from the parser is always in string form from the original expression.
 */
-func evalCompareValues(attrValue gjson.Result, compValue gjson.Result, op filter.CompareOperator) (bool, error) {
-	if !attrValue.Exists() {
-		return evalCompareNil(compValue, op), nil
-	}
-
-	if compValue.IsArray() {
-		match := false
-		for _, val := range compValue.Array() {
-			res, err := evalCompareValues(attrValue, val, op)
-			if err != nil {
-				fmt.Println(err.Error())
-			}
-			if res {
-				match = true
-				break
-			}
+func evalCompareValues(left types.Value, right types.Value, op filter.CompareOperator) (bool, error) {
+	switch val := left.(type) {
+	case types.Array:
+		return compareArray(left, right, op)
+	case types.ComparableValue:
+		if string(op) == types.PR {
+			return left.Value() != nil, nil
 		}
-		return match, nil
-	}
-
-	if attrValue.Type == gjson.Number || compValue.Type == gjson.Number {
-		leftFloat, isNum := safeFloat(attrValue)
-		if isNum {
-			if !compValue.Exists() {
-				return evalCompareNil(attrValue, op), nil
+		switch rVal := right.(type) {
+		case types.Array:
+			return compareArray(left, right, op)
+		case types.ComparableValue:
+			res, notOk := types.CompareValues(val, rVal, string(op))
+			if notOk {
+				return res, errors.New("incompatible comparison values")
 			}
-			rightFloat, isNum := safeFloat(compValue)
-			if isNum {
-				return evalCompareFloat(op, leftFloat, rightFloat), nil
-			}
+			return res, nil
 		}
-		return false, errors.New("invalid number comparison")
+
 	}
 
-	if attrValue.Type == gjson.String {
-		return evalCompareStrings(op, attrValue.Str, compValue.String()), nil
-	}
+	leftType := "undefined"
+	rightType := "undefined"
+	leftType = fmt.Sprintf("%s(%s)", types.TypeName(left.ValueType()), left.String())
 
-	return false, errors.New("Undefined attribute input type: " + fmt.Sprint(attrValue))
+	if right != nil {
+		rightType = fmt.Sprintf("%s(%s)", types.TypeName(right.ValueType()), right.String())
+	}
+	return false, errors.New(fmt.Sprintf("invalid comparison: %s %s %s", leftType, op, rightType))
 }
 
 func evalAttributeExpression(e filter.AttributeExpression, input string) (bool, error) {
-	path := e.AttributePath
-	leftValue := getAttributeValue(input, path)
-	// TODO: May have to support inverted values (input attribute on right)
+
+	leftValue := getAttributeValue(input, e.AttributePath)
+	if leftValue == nil {
+		return false, errors.New(fmt.Sprintf("invalid attribute %s", e.AttributePath))
+	}
 
 	compValue := getAttributeValue(input, e.CompareValue)
 
-	if leftValue.IsArray() {
-		match := false
-		for _, val := range leftValue.Array() {
-			res, err := evalCompareValues(val, compValue, e.Operator)
-			if err != nil {
-				fmt.Println(err.Error())
-			}
-			if res {
-				match = true
-				break
-			}
-		}
-		return match, nil
-	}
-
 	return evalCompareValues(leftValue, compValue, e.Operator)
-}
-
-func evalCompareStrings(op filter.CompareOperator, attrVal string, compVal string) bool {
-	switch op {
-	case filter.EQ, filter.IN:
-		return strings.EqualFold(attrVal, compVal)
-	case filter.LT:
-		return attrVal < compVal
-	case filter.GT:
-		return attrVal > compVal
-	case filter.LE:
-		return attrVal <= compVal
-	case filter.GE:
-		return attrVal >= compVal
-	case filter.CO:
-		return strings.Contains(attrVal, compVal)
-	case filter.PR:
-		return attrVal != ""
-	case filter.SW:
-		return strings.HasPrefix(attrVal, compVal)
-	case filter.EW:
-		return strings.HasSuffix(attrVal, compVal)
-	case filter.NE:
-		return attrVal != compVal
-	}
-	fmt.Printf("Unexpected comparison operator: %v", op)
-	return false
-}
-
-/*
-evalCompareInt replaced by float compare
-func evalCompareInt(op filter.CompareOperator, attrVal int, compVal int) bool {
-	switch op {
-	case filter.EQ:
-		return attrVal == compVal
-	case filter.NE:
-		return attrVal != compVal
-	case filter.LT:
-		return attrVal < compVal
-	case filter.GT:
-		return attrVal > compVal
-	case filter.LE:
-		return attrVal <= compVal
-	case filter.GE:
-		return attrVal >= compVal
-	default:
-		return false
-	}
-}
-*/
-
-func evalCompareFloat(op filter.CompareOperator, attrVal float64, compVal float64) bool {
-	switch op {
-	case filter.EQ:
-		return attrVal == compVal
-	case filter.NE:
-		return attrVal != compVal
-	case filter.LT:
-		return attrVal < compVal
-	case filter.GT:
-		return attrVal > compVal
-	case filter.LE:
-		return attrVal <= compVal
-	case filter.GE:
-		return attrVal >= compVal
-	default:
-		return false
-	}
 }
