@@ -56,7 +56,7 @@
         "can_update_todo"
       ],
       "condition": {
-        "rule": "subject.roles co evil_genius or (subject.roles co editor and resource.properties.ownerID eq subject.claims.email)",
+        "rule": "subject.roles co \"evil_genius\" or (subject.roles co \"editor\" and resource.properties.ownerID eq subject.claims.email)",
         "action": "allow"
       },
       "object": "todo"
@@ -74,7 +74,7 @@
         "can_delete_todo"
       ],
       "condition": {
-        "rule": "subject.roles co admin or (subject.roles co editor and resource.properties.ownerID eq subject.claims.email)",
+        "rule": "subject.roles co \"admin\" or (subject.roles co \"editor\" and resource.properties.ownerID eq subject.claims.email)",
         "action": "allow"
       },
       "object": "todo"
