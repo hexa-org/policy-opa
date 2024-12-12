@@ -17,7 +17,7 @@
       ],
       "object": "CanaryProfileService",
       "condition": {
-        "rule": "subject.type eq basic",
+        "rule": "subject.type eq \"basic\"",
         "action": "allow"
       }
     },
@@ -37,7 +37,7 @@
         "http:GET:/testpath*"
       ],
       "condition": {
-        "rule": "req.ip sw 127.0.0.1 and subject.type eq basic",
+        "rule": "req.ip sw \"127.0.0.1\" and subject.type eq \"basic\"",
         "action": "allow"
       },
       "object": "CanaryProfileService"
@@ -59,7 +59,7 @@
       ],
       "object": "CanaryProfileService",
       "condition": {
-        "rule": "subject.type eq jwt and subject.iss eq testIssuer and subject.aud co testAudience",
+        "rule": "subject.type eq \"jwt\" and subject.iss eq \"testIssuer\" and subject.aud co \"testAudience\"",
         "action": "allow"
       }
     },
@@ -79,7 +79,7 @@
         "http:GET:/testpath*"
       ],
       "condition": {
-        "rule": "req.method eq GET",
+        "rule": "req.method eq \"GET\"",
         "action": "allow"
       },
       "object": "CanaryProfileService"
@@ -117,7 +117,7 @@
         "http:GET:/testpath*"
       ],
       "condition": {
-        "rule": "req.ip sw 127 and req.method NE DELETE",
+        "rule": "req.ip sw \"127\" and req.method NE \"DELETE\"",
         "action": "allow"
       },
       "object": "CanaryProfileService"
@@ -138,7 +138,7 @@
       ],
       "object": "CanaryProfileService",
       "condition": {
-        "rule": "subject.type eq jwt and subject.iss eq testIssuer and subject.aud co testAudience and subject.roles co abc",
+        "rule": "subject.type eq \"jwt\" and subject.iss eq \"testIssuer\" and subject.aud co \"testAudience\" and subject.roles co \"abc\"",
         "action": "allow"
       }
     },
@@ -161,7 +161,7 @@
       ],
       "object": "CanaryProfileService",
       "condition": {
-        "rule": "subject.type eq jwt and subject.iss eq testIssuer and subject.aud co testAudience",
+        "rule": "subject.type eq \"jwt\" and subject.iss eq \"testIssuer\" and subject.aud co \"testAudience\"",
         "action": "allow"
       }
     }

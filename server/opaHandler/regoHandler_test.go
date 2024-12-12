@@ -18,12 +18,10 @@ func TestOpaHandler(t *testing.T) {
 	_, file, _, _ := runtime.Caller(0)
 	userFile := filepath.Join(file, "../../../deployments/authZen/users.json")
 	dataFile := filepath.Join(file, "../../../deployments/authZen/data.json")
-
-	bundleDir := bundleTestSupport.InitTestBundlesDir(nil)
+	dataBytes, err := os.ReadFile(dataFile)
+	bundleDir := bundleTestSupport.InitTestBundlesDir(dataBytes)
 	defer bundleTestSupport.Cleanup(bundleDir)
 
-	dataBytes, err := os.ReadFile(dataFile)
-	_ = os.WriteFile(filepath.Join(bundleDir, "bundle", "data.json"), dataBytes, 0755)
 	pip := userHandler.NewUserPIP(userFile)
 
 	_ = os.Setenv(config.EnvBundleDir, bundleDir)

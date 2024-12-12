@@ -16,10 +16,10 @@ USER ${USER}
 # ADD docker/config/gcp-opa-config.yaml ./gcp-opa-config.yaml
 # ADD docker/config/config.yaml ./config.yaml
 
-ADD --chmod=ug+x ./hexaOpa ./hexaOpa
-ADD --chmod=ug+x ./hexaBundleServer ./hexaBundleServer
-ADD --chmod=ug+x ./hexaAuthZen ./hexaAuthZen
-ADD --chmod=ug+x ./hexaIndustriesDemo ./hexaIndustriesDemo
+ADD --chmod=0755 ./hexaOpa ./hexaOpa
+ADD --chmod=0755 ./hexaBundleServer ./hexaBundleServer
+ADD --chmod=0755 ./hexaAuthZen ./hexaAuthZen
+ADD --chmod=0755 ./hexaIndustriesDemo ./hexaIndustriesDemo
 
 # Optional:
 # To bind to a TCP port, runtime parameters must be supplied to the docker command.
