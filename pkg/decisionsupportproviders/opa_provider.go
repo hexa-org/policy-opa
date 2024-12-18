@@ -72,6 +72,7 @@ type PolicyParseError struct {
 type HexaOpaResult struct {
 	ActionRights      []string           `json:"action_rights"`
 	AllowSet          []string           `json:"allow_set"`
+	DenySet           []string           `json:"deny_set"`
 	Allow             bool               `json:"allow"`
 	PoliciesEvaluated int                `json:"policies_evaluated"`
 	HexaRegoVersion   string             `json:"hexa_rego_version"`

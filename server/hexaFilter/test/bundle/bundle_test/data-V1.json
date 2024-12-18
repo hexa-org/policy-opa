@@ -67,6 +67,39 @@
       "meta": {
         "version": "0.7",
         "date": "2021-08-01 21:32:44 UTC",
+        "description": "Tests disallows actions by mrdenial with a condition rule",
+        "policyId": "TestDenyUserWithRule"
+      },
+      "subjects": [
+        "User:mrdenial"
+      ],
+      "actions": [],
+      "object": "CanaryProfileService",
+      "condition": {
+        "rule": "subject.iss eq \"testIssuer\" and subject.aud co \"testAudience\"",
+        "action": "deny"
+      }
+    },
+    {
+      "meta": {
+        "version": "0.7",
+        "date": "2021-08-01 21:32:44 UTC",
+        "description": "Tests disallows actions by mrdenial with action deny and no rule",
+        "policyId": "TestDenyRule"
+      },
+      "subjects": [
+        "User:testdenyrule"
+      ],
+      "actions": [],
+      "object": "CanaryProfileService",
+      "condition": {
+        "action": "deny"
+      }
+    },
+    {
+      "meta": {
+        "version": "0.7",
+        "date": "2021-08-01 21:32:44 UTC",
         "description": "Access enabling user self service for users with role",
         "policyId": "TestIPMaskCanary"
       },

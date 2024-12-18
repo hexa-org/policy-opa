@@ -272,6 +272,90 @@ func TestIdqlMember(t *testing.T) {
 	utils.StopServer(server)
 }
 
+// TestIdqlDenyRule tests that a condition rule with an action deny takes precedence
+func TestIdqlDenyRule(t *testing.T) {
+	key := "sercrethatmaycontainch@r$32chars!"
+	server := utils.SetUpMockServer(key, "", false)
+	fmt.Println("\nGET Test with token and role")
+	client := &http.Client{Timeout: time.Minute * 2}
+
+	toknstr, err := utils.GenerateBearerToken(key, "mrdenial", time.Now().Add(time.Minute*1))
+	if err != nil {
+		log.Fatalln(err)
+	}
+	authz := "Bearer " + toknstr
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s/testpath?a=b&c=d", server.Addr), nil)
+	if err != nil {
+		assert.Error(t, err)
+	}
+	req.Header.Set("Authorization", authz)
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	inputStr := string(body)
+	fmt.Println("input = " + inputStr)
+
+	results := RunRego(t, body, dataV1Path)
+	if results == nil {
+		log.Fatalln("Received nil OPA results!")
+	}
+
+	allowSet, actionRights := ProcessResults(t, results)
+
+	assert.Equal(t, 12, len(actionRights))
+	assert.Equal(t, 4, len(allowSet))
+	assert.Equal(t, 1, len(results.DenySet))
+	assert.Contains(t, results.DenySet, "TestDenyUserWithRule")
+	assert.NotContains(t, allowSet, "TestDenyUserWithRule")
+	assert.NotContains(t, results.DenySet, "TestDenyRule")
+	assert.False(t, results.Allow, "Should be false as in deny!")
+	utils.StopServer(server)
+}
+
+// TestIdqlDenyRule tests that a condition with action set to deny is processed (no rule value)
+func TestIdqlDenyAction(t *testing.T) {
+	key := "sercrethatmaycontainch@r$32chars!"
+	server := utils.SetUpMockServer(key, "", false)
+	fmt.Println("\nGET Test with token and role")
+	client := &http.Client{Timeout: time.Minute * 2}
+
+	toknstr, err := utils.GenerateBearerToken(key, "testdenyrule", time.Now().Add(time.Minute*1))
+	if err != nil {
+		log.Fatalln(err)
+	}
+	authz := "Bearer " + toknstr
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s/testpath?a=b&c=d", server.Addr), nil)
+	if err != nil {
+		assert.Error(t, err)
+	}
+	req.Header.Set("Authorization", authz)
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	inputStr := string(body)
+	fmt.Println("input = " + inputStr)
+
+	results := RunRego(t, body, dataV1Path)
+	if results == nil {
+		log.Fatalln("Received nil OPA results!")
+	}
+
+	allowSet, actionRights := ProcessResults(t, results)
+
+	assert.Equal(t, 12, len(actionRights))
+	assert.Equal(t, 4, len(allowSet))
+	assert.Equal(t, 1, len(results.DenySet))
+	assert.Contains(t, results.DenySet, "TestDenyRule")
+	assert.NotContains(t, allowSet, "TestDenyRule")
+	assert.NotContains(t, allowSet, "TestDenyUserWithRule")
+	assert.False(t, results.Allow, "Should be false as in deny!")
+	utils.StopServer(server)
+}
+
 func TestIdqlRole(t *testing.T) {
 	key := "sercrethatmaycontainch@r$32chars!"
 	server := utils.SetUpMockServer(key, "", false)
