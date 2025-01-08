@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"strconv"
+	"testing"
 	"time"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -17,10 +18,11 @@ import (
 )
 
 /*
-This is a mock server that simply returns the http request infor as an OPA input structure to the requesting client.
-Main purpose is to test how OpaInput works against http.Request
+SetUpMockServer is a mock server that simply returns the http request infor as an OPA input structure to the requesting client.
+The main purpose of this utility to test how OpaInput works against http.Request
 */
-func SetUpMockServer(key string, path string, mockOidcMode bool) *http.Server {
+func SetUpMockServer(key string, path string, mockOidcMode bool, t *testing.T) *http.Server {
+	t.Helper()
 	err := os.Setenv("OPATOOLS_JWTVERIFYKEY", key)
 	if err != nil {
 		log.Fatalln(err)
@@ -31,7 +33,7 @@ func SetUpMockServer(key string, path string, mockOidcMode bool) *http.Server {
 	listener, _ := net.Listen("tcp", "localhost:0")
 
 	// Need to fix this so it will just serve anything for policy testing
-	server := CreateServer(listener.Addr().String(), func(router *mux.Router) {
+	server := CreateServer(t, listener.Addr().String(), func(router *mux.Router) {
 		router.HandleFunc(path, func(w http.ResponseWriter, r *http.Request) {
 			var input *opaTools.OpaInfo
 			if mockOidcMode {
@@ -60,7 +62,7 @@ func SetUpMockServer(key string, path string, mockOidcMode bool) *http.Server {
 		}).Queries("a", "{a}", "c", "{c}")
 	}, Options{})
 
-	go StartServer(server, listener)
+	go StartServer(t, server, listener)
 
 	WaitForHealthy(server)
 	return server
@@ -72,10 +74,10 @@ func GenerateBearerToken(key string, subject string, expires time.Time) (string,
 		RegisteredClaims: &jwt.RegisteredClaims{
 			Issuer:    "testIssuer",
 			Audience:  []string{"testAudience"},
-			ExpiresAt: &jwt.NumericDate{expires},
+			ExpiresAt: &jwt.NumericDate{Time: expires},
 			Subject:   subject,
-			NotBefore: &jwt.NumericDate{now},
-			IssuedAt:  &jwt.NumericDate{now},
+			NotBefore: &jwt.NumericDate{Time: now},
+			IssuedAt:  &jwt.NumericDate{Time: now},
 		},
 		Roles: "bearer abc",
 	}
@@ -159,7 +161,8 @@ func Paths(router *mux.Router) []Path {
 	return paths
 }
 
-func CreateServer(addr string, handlers func(x *mux.Router), options Options) *http.Server {
+func CreateServer(t *testing.T, addr string, handlers func(x *mux.Router), options Options) *http.Server {
+	t.Helper()
 	checks := options.HealthChecks
 	if checks == nil || len(checks) == 0 {
 		checks = append(checks, &NoopCheck{})
@@ -185,9 +188,10 @@ func CreateServer(addr string, handlers func(x *mux.Router), options Options) *h
 	return &server
 }
 
-func StartServer(server *http.Server, l net.Listener) {
+func StartServer(t *testing.T, server *http.Server, l net.Listener) {
+	t.Helper()
 	if server.TLSConfig != nil {
-		log.Println("Starting the server with tls support", server.Addr)
+		t.Log("Starting the server with tls support", server.Addr)
 		err := server.ServeTLS(l, "", "")
 		if err != nil {
 			log.Println("error starting the server:", err.Error())
@@ -198,12 +202,15 @@ func StartServer(server *http.Server, l net.Listener) {
 	log.Println("Starting the server", server.Addr)
 	err := server.Serve(l)
 	if err != nil {
-		log.Println("error starting the server:", err.Error())
+		if err != http.ErrServerClosed {
+			t.Error("error starting the server:", err.Error())
+		}
 		return
 	}
 }
 
-func StopServer(server *http.Server) {
-	log.Printf("Stopping the server.")
+func StopServer(t *testing.T, server *http.Server) {
+	t.Helper()
+	log.Println("Stopping the server.")
 	_ = server.Shutdown(context.Background())
 }

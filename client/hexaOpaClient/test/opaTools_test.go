@@ -17,7 +17,7 @@ import (
 
 func TestAnonymous(t *testing.T) {
 
-	server := utils.SetUpMockServer("verifymenow", "", false)
+	server := utils.SetUpMockServer("verifymenow", "", false, t)
 
 	resp, err := http.Get(fmt.Sprintf("http://%s/testpath?a=b&c=d", server.Addr))
 	if err != nil {
@@ -41,12 +41,12 @@ func TestAnonymous(t *testing.T) {
 	subInfo := input.Subject
 	assert.Equal(t, "Anonymous", subInfo.Type)
 	assert.Equal(t, 2, len(reqInfo.Header))
-	utils.StopServer(server)
+	utils.StopServer(t, server)
 }
 
 func TestBasicAuth(t *testing.T) {
 
-	server := utils.SetUpMockServer("verifyme", "", false)
+	server := utils.SetUpMockServer("verifyme", "", false, t)
 
 	client := &http.Client{Timeout: time.Second * 10}
 
@@ -76,12 +76,12 @@ func TestBasicAuth(t *testing.T) {
 	subInfo := input.Subject
 	assert.Equal(t, subInfo.Type, "basic")
 	assert.Equal(t, subInfo.Sub, "testUser")
-	utils.StopServer(server)
+	utils.StopServer(t, server)
 }
 
 func TestJwtAuth(t *testing.T) {
 	key := "sercrethatmaycontainch@r$32chars!"
-	server := utils.SetUpMockServer(key, "", false)
+	server := utils.SetUpMockServer(key, "", false, t)
 
 	client := &http.Client{Timeout: time.Minute * 2}
 
@@ -119,12 +119,12 @@ func TestJwtAuth(t *testing.T) {
 	assert.Equal(t, "jwt", subInfo.Type)
 	assert.Equal(t, "TestUser", subInfo.Sub)
 
-	utils.StopServer(server)
+	utils.StopServer(t, server)
 }
 
 func TestExpiredJwtAuth(t *testing.T) {
 	key := "sercrethatmaycontainch@r$32chars!"
-	server := utils.SetUpMockServer(key, "", false)
+	server := utils.SetUpMockServer(key, "", false, t)
 
 	client := &http.Client{Timeout: time.Minute * 2}
 
@@ -154,12 +154,12 @@ func TestExpiredJwtAuth(t *testing.T) {
 	fmt.Println(string(body))
 	assert.True(t, strings.HasPrefix(subInfo.Type, "Invalid"))
 
-	utils.StopServer(server)
+	utils.StopServer(t, server)
 }
 
 func TestPrepareInputWithClaims(t *testing.T) {
 	key := "sercrethatmaycontainch@r$32chars!"
-	server := utils.SetUpMockServer(key, "", true)
+	server := utils.SetUpMockServer(key, "", true, t)
 
 	client := &http.Client{Timeout: time.Minute * 2}
 
@@ -197,6 +197,6 @@ func TestPrepareInputWithClaims(t *testing.T) {
 	assert.Equal(t, "jwt", subInfo.Type)
 	assert.Equal(t, "TestUser", subInfo.Sub)
 
-	utils.StopServer(server)
+	utils.StopServer(t, server)
 
 }

@@ -2,6 +2,7 @@ package hexaFilter
 
 import (
 	"fmt"
+
 	"github.com/hexa-org/policy-opa/server/conditionEvaluator"
 	"github.com/open-policy-agent/opa/plugins"
 	"golang.org/x/net/context"

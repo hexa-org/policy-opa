@@ -1,4 +1,4 @@
-package test_test
+package hexaFilter_test
 
 import (
 	"bytes"
@@ -28,7 +28,7 @@ const dataV1Path = "bundle/bundle_test/data-V1.json"
 
 func TestIdqlBasic(t *testing.T) {
 
-	server := utils.SetUpMockServer("verifyme", "", false)
+	server := utils.SetUpMockServer("verifyme", "", false, t)
 
 	client := &http.Client{Timeout: time.Second * 10}
 
@@ -54,17 +54,17 @@ func TestIdqlBasic(t *testing.T) {
 	allowSet, _ := ProcessResults(t, results)
 
 	assert.Contains(t, allowSet, "TestBasicCanary")          // This policy has no codnition
-	assert.Contains(t, allowSet, "TestBasicCanaryCondition") // THis policy matches on ip sw 127
+	assert.Contains(t, allowSet, "TestBasicCanaryCondition") // THis policy matches on "ip sw 127"
 	assert.Contains(t, allowSet, "TestIPMaskCanary")
 	assert.Contains(t, allowSet, "TestIPMaskCanaryNotDelete")
 	assert.NotContains(t, allowSet, "TestIPMaskCanaryPOST")
-	utils.StopServer(server)
+	utils.StopServer(t, server)
 
 }
 
 func TestIdqlJwt(t *testing.T) {
 	key := "sercrethatmaycontainch@r$32chars!"
-	server := utils.SetUpMockServer(key, "", false)
+	server := utils.SetUpMockServer(key, "", false, t)
 
 	client := &http.Client{Timeout: time.Minute * 2}
 
@@ -98,12 +98,12 @@ func TestIdqlJwt(t *testing.T) {
 	assert.Contains(t, allowSet, "TestJwtCanary")
 	assert.Contains(t, allowSet, "TestJwtMember")
 	assert.NotContains(t, allowSet, "TestJwtRole")
-	utils.StopServer(server)
+	utils.StopServer(t, server)
 }
 
 func TestIdqlIp(t *testing.T) {
 	key := "sercrethatmaycontainch@r$32chars!"
-	server := utils.SetUpMockServer(key, "", false)
+	server := utils.SetUpMockServer(key, "", false, t)
 
 	client := &http.Client{Timeout: time.Minute * 2}
 
@@ -126,7 +126,7 @@ func TestIdqlIp(t *testing.T) {
 	}
 
 	/*
-		This test should return 2 policy matches (TestIPMaskCanary and TestIPMaskCanaryNotDelete) which each has 3 actions
+		This test should return 2 policy matches (TestIPMaskCanary and TestIPMaskCanaryNotDelete) where each match has 3 actions
 		decisions enumerated for a total of 6 (create,get, and not edit)
 	*/
 
@@ -135,7 +135,7 @@ func TestIdqlIp(t *testing.T) {
 	assert.Equal(t, 6, len(actionRights))
 	assert.Equal(t, 2, len(allowSet))
 
-	utils.StopServer(server)
+	utils.StopServer(t, server)
 }
 
 /*
@@ -146,7 +146,7 @@ a delete which should also be refused as it is not explicitly enabled.
 */
 func TestIdqlIpActions(t *testing.T) {
 	key := "sercrethatmaycontainch@r$32chars!"
-	server := utils.SetUpMockServer(key, "", false)
+	server := utils.SetUpMockServer(key, "", false, t)
 
 	client := &http.Client{Timeout: time.Minute * 2}
 
@@ -231,12 +231,12 @@ func TestIdqlIpActions(t *testing.T) {
 	assert.Equal(t, 0, len(actionRights))
 	assert.Equal(t, 0, len(allowSet))
 
-	utils.StopServer(server)
+	utils.StopServer(t, server)
 }
 
 func TestIdqlMember(t *testing.T) {
 	key := "sercrethatmaycontainch@r$32chars!"
-	server := utils.SetUpMockServer(key, "", false)
+	server := utils.SetUpMockServer(key, "", false, t)
 	fmt.Println("\nGET Test with token and role")
 	client := &http.Client{Timeout: time.Minute * 2}
 
@@ -269,13 +269,13 @@ func TestIdqlMember(t *testing.T) {
 	assert.Equal(t, 4, len(allowSet))
 	assert.Contains(t, allowSet, "TestJwtMember")
 
-	utils.StopServer(server)
+	utils.StopServer(t, server)
 }
 
 // TestIdqlDenyRule tests that a condition rule with an action deny takes precedence
 func TestIdqlDenyRule(t *testing.T) {
 	key := "sercrethatmaycontainch@r$32chars!"
-	server := utils.SetUpMockServer(key, "", false)
+	server := utils.SetUpMockServer(key, "", false, t)
 	fmt.Println("\nGET Test with token and role")
 	client := &http.Client{Timeout: time.Minute * 2}
 
@@ -311,13 +311,13 @@ func TestIdqlDenyRule(t *testing.T) {
 	assert.NotContains(t, allowSet, "TestDenyUserWithRule")
 	assert.NotContains(t, results.DenySet, "TestDenyRule")
 	assert.False(t, results.Allow, "Should be false as in deny!")
-	utils.StopServer(server)
+	utils.StopServer(t, server)
 }
 
 // TestIdqlDenyRule tests that a condition with action set to deny is processed (no rule value)
 func TestIdqlDenyAction(t *testing.T) {
 	key := "sercrethatmaycontainch@r$32chars!"
-	server := utils.SetUpMockServer(key, "", false)
+	server := utils.SetUpMockServer(key, "", false, t)
 	fmt.Println("\nGET Test with token and role")
 	client := &http.Client{Timeout: time.Minute * 2}
 
@@ -353,12 +353,12 @@ func TestIdqlDenyAction(t *testing.T) {
 	assert.NotContains(t, allowSet, "TestDenyRule")
 	assert.NotContains(t, allowSet, "TestDenyUserWithRule")
 	assert.False(t, results.Allow, "Should be false as in deny!")
-	utils.StopServer(server)
+	utils.StopServer(t, server)
 }
 
 func TestIdqlRole(t *testing.T) {
 	key := "sercrethatmaycontainch@r$32chars!"
-	server := utils.SetUpMockServer(key, "", false)
+	server := utils.SetUpMockServer(key, "", false, t)
 	fmt.Println("\nGET Test with token and role")
 	client := &http.Client{Timeout: time.Minute * 2}
 
@@ -392,7 +392,7 @@ func TestIdqlRole(t *testing.T) {
 	assert.Contains(t, allowSet, "TestJwtRole")
 	assert.Contains(t, allowSet, "TestJwtMember")
 
-	utils.StopServer(server)
+	utils.StopServer(t, server)
 }
 
 func RunRego(t *testing.T, inputByte []byte, dataPath string) *decisionsupportproviders.HexaOpaResult {
@@ -411,7 +411,7 @@ func RunRego(t *testing.T, inputByte []byte, dataPath string) *decisionsupportpr
 		}
 	}(bundleDir)
 
-	regoHandler, _ := opaHandler.NewRegoHandler(bundleDir)
+	regoHandler, _ := opaHandler.NewRegoHandlerWithValidation(bundleDir, "", "")
 
 	var input infoModel.AzInfo
 	err = json.Unmarshal(inputByte, &input)
