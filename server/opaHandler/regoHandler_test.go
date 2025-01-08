@@ -123,7 +123,7 @@ func TestOpaHandler_StartupValidateBundle(t *testing.T) {
 	defer bundleTestSupport.Cleanup(bundleDir)
 	_ = os.Setenv(config.EnvBundleDir, bundleDir)
 
-	handler, err := NewRegoHandler(bundleDir)
+	handler, err := NewRegoHandlerWithValidation(bundleDir, "", "")
 	assert.Error(t, err, "unexpected end of JSON input")
 	assert.Nil(t, handler, "Should be nil due to error")
 

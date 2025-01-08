@@ -19,6 +19,9 @@ import (
 
 const EnvOpaDebug string = "HEXAOPA_DETAIL"
 
+// A OpaDecisionProvider implements the DecisionProvider interface
+// and is used to convert http request information and other contextual information
+// to call a HexaOPA service for a policy decision
 type OpaDecisionProvider struct {
 	Client      HTTPClient
 	Url         string
@@ -70,14 +73,14 @@ type PolicyParseError struct {
 }
 
 type HexaOpaResult struct {
-	ActionRights      []string           `json:"action_rights"`
-	AllowSet          []string           `json:"allow_set"`
-	DenySet           []string           `json:"deny_set"`
-	Allow             bool               `json:"allow"`
-	PoliciesEvaluated int                `json:"policies_evaluated"`
-	HexaRegoVersion   string             `json:"hexa_rego_version"`
-	Scopes            []ScopeObligation  `json:"scopes,omitempty"`
-	PolicyErrors      []PolicyParseError `json:"error_idql,omitempty"`
+	ActionRights      []string           `json:"action_rights"`        // lists the actions that are allowed by all policies matched
+	AllowSet          []string           `json:"allow_set"`            // lists policyId values that matched
+	DenySet           []string           `json:"deny_set"`             // lists policyId values of policies that matched with condition action 'deny'
+	Allow             bool               `json:"allow"`                // set to true if denySet is 0 and allowSet > 0
+	PoliciesEvaluated int                `json:"policies_evaluated"`   // total number of idql policies evaluated
+	HexaRegoVersion   string             `json:"hexa_rego_version"`    // Current rego policy version used
+	Scopes            []ScopeObligation  `json:"scopes,omitempty"`     // Scopes obligations returned from policies matched
+	PolicyErrors      []PolicyParseError `json:"error_idql,omitempty"` // Parsing diagnostics detected at run time
 }
 
 type OpaResponse struct {
@@ -87,6 +90,8 @@ type OpaResponse struct {
 	Explanation *json.RawMessage `json:"explanation"`
 }
 
+// AllowQuery calls the configured HexaOPA server and returns a parsed HexaOpaResult value.
+// The any parameter is actually an opaTools.OpaInfo struct that contains contextual request information from BuildInput function.
 func (o OpaDecisionProvider) AllowQuery(any interface{}) (*HexaOpaResult, error) {
 	info := any.(*opaTools.OpaInfo)
 	input := OpaRestQuery{Input: *info}
@@ -136,6 +141,8 @@ func (o OpaDecisionProvider) AllowQuery(any interface{}) (*HexaOpaResult, error)
 	return &jsonResponse.Result, nil
 }
 
+// Allow is a convenience method (similar to AllowQuery) that returns either a true or false policy decision result.
+// The parameter any is usually the value from BuildInput func.
 func (o OpaDecisionProvider) Allow(any interface{}) (bool, error) {
 	resp, err := o.AllowQuery(any)
 	if err != nil {

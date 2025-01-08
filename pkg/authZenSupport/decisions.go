@@ -57,6 +57,9 @@ func NewDecisionHandler() (*DecisionHandler, error) {
 
 	}
 
+	pimFile := os.Getenv(config.EnvPolicyModelFile)
+	namespace := os.Getenv(config.EnvDefPimNamespace)
+
 	// Check to see if a bundle folder exists, if not create a new AuthZen bundle
 	bundleDir := filepath.Join(bundlesDir, "bundle")
 	_, err = os.Stat(bundleDir)
@@ -64,7 +67,7 @@ func NewDecisionHandler() (*DecisionHandler, error) {
 		createInitialBundle(bundlesDir)
 	}
 
-	handler, err := opaHandler.NewRegoHandler(bundlesDir)
+	handler, err := opaHandler.NewRegoHandlerWithValidation(bundlesDir, pimFile, namespace)
 	if err != nil {
 		return nil, err
 	}

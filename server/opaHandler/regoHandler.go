@@ -1,5 +1,5 @@
 /*
-Package opaHandler is used by the hexaAuthZen server package to enable running rego based decisions in an all-in-one
+Package opaHandler is used by the hexaAuthZen server package to process OPA rego based decisions in an all-in-one
 demonstration deployment. When an AuthZen decision request is received, the request is parsed and transformed into an OPA
 decision request which this handler processes.
 */
@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/hexa-org/policy-mapper/pkg/hexapolicy/pimValidate"
 	"github.com/hexa-org/policy-mapper/pkg/hexapolicysupport"
 	"github.com/hexa-org/policy-opa/api/infoModel"
 	"github.com/hexa-org/policy-opa/client/hexaOpaClient"
@@ -25,12 +26,14 @@ import (
 	"github.com/open-policy-agent/opa/rego"
 	"github.com/open-policy-agent/opa/topdown"
 	"github.com/open-policy-agent/opa/types"
+	log "golang.org/x/exp/slog"
 )
 
 type RegoHandler struct {
 	query     *rego.PreparedEvalQuery
 	rego      *rego.Rego
 	bundleDir string
+	validator *pimValidate.Validator
 	Tracer    *topdown.BufferTracer
 }
 
@@ -57,6 +60,36 @@ func (h *RegoHandler) ValidateBundle() error {
 	}
 	if len(val) == 0 {
 		return errors.New("no policies found")
+	}
+	var errMap map[string][]error
+	if h.validator != nil {
+		hasValidationErrors := false
+		for i, policy := range val {
+			errorSet := h.validator.ValidatePolicy(policy)
+			if len(errorSet) > 0 {
+				hasValidationErrors = true
+				errId := fmt.Sprintf("Policy-%d", i)
+				if policy.Meta.PolicyId != nil {
+					errId = *policy.Meta.PolicyId
+				}
+				errMap[errId] = errorSet
+			}
+		}
+		if hasValidationErrors {
+			sb := strings.Builder{}
+			sb.WriteString("Policy validation failed:\n")
+			for id, errs := range errMap {
+				title := fmt.Sprintf("%s\n", id)
+				sb.WriteString(title)
+				sb.WriteString(strings.Repeat("-", len(title)-1) + "\n")
+				for _, err := range errs {
+					sb.WriteString(err.Error())
+					sb.WriteString("\n")
+				}
+			}
+			log.Error(sb.String())
+			return errors.New(sb.String())
+		}
 	}
 	return err
 }
@@ -112,7 +145,20 @@ func (h *RegoHandler) ReloadRego() error {
 	return nil
 }
 
+// NewRegoHandler instantiate a new OPA processor instance for making policy decisions.
+//
+// Parameters:
+// bundleDir is the path to a directory containing hexa policy to be evaluated along with hexaPolicy.rego
 func NewRegoHandler(bundleDir string) (*RegoHandler, error) {
+	return NewRegoHandlerWithValidation(bundleDir, "", "")
+}
+
+// NewRegoHandlerWithValidation instantiates a new OPA processor instance for making policy decisions.
+func NewRegoHandlerWithValidation(bundleDir string, // bundleDir is the path to a directory containing hexa policy to be evaluated along with hexaPolicy.rego
+	policyModelFile string, // policyModelFile is the path to a file containing a Hexa Policy Information Model which can be used to validate policies on startup or reload. When policyModelFile is blank (""), policy will not be validated
+	defaultNamespace string, // defaultNamespace is the default namespace for policy entities.
+	// E.g. PhotoApp:User:name vs. User:name with default namespace "PhotoApp"
+) (*RegoHandler, error) {
 
 	if bundleDir == "" {
 		// If a relative path is used, then join with the current executable path...
@@ -120,8 +166,23 @@ func NewRegoHandler(bundleDir string) (*RegoHandler, error) {
 		bundleDir = config.DefBundlePath
 	}
 
+	var validator *pimValidate.Validator
+	if policyModelFile != "" {
+		// Initialize the validator
+		pimBytes, err := os.ReadFile(policyModelFile)
+		if err != nil {
+			return nil, errors.New("Error reading policy model file: " + err.Error())
+		}
+		validator, err = pimValidate.NewValidator(pimBytes, defaultNamespace)
+		if err != nil {
+			return nil, errors.New("Error parsing poliyc information model: " + err.Error())
+		}
+
+	}
+
 	handler := &RegoHandler{
 		bundleDir: bundleDir,
+		validator: validator,
 	}
 
 	// this checks that the policy is parsable Hexa IDQL

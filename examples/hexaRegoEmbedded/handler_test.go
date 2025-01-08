@@ -48,7 +48,7 @@ func NewDecisionHandler() (*opaHandler.RegoHandler, error) {
 		_ = os.WriteFile(filepath.Join(bundlesDir, "bundle", "data.json"), []byte(policyIDQL), 0644)
 	}
 
-	return opaHandler.NewRegoHandler(bundlesDir)
+	return opaHandler.NewRegoHandlerWithValidation(bundlesDir, "", "")
 }
 
 func createInitialBundle(bundlePath string) {

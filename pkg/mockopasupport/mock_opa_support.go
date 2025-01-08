@@ -33,7 +33,7 @@ func NewMockOPA(t *testing.T, policyBytes []byte) *MockOPA {
 		t: t,
 	}
 	m.initTestBundlesDir(policyBytes)
-	m.regoHandler, _ = opaHandler.NewRegoHandler(m.BundleDir)
+	m.regoHandler, _ = opaHandler.NewRegoHandlerWithValidation(m.BundleDir, "", "")
 	router := m.initHandlers()
 	m.Server = newTestServer(t, router)
 

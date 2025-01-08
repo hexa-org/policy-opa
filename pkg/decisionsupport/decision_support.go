@@ -1,3 +1,4 @@
+// Package decisionsupport provides a Middleware function for integrating the hexa opa provider (OpaDecisionProvider).
 package decisionsupport
 
 import (

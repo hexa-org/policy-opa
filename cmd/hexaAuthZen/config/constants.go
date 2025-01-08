@@ -12,6 +12,8 @@ const (
 	EnvAuthUserPipFile            string = "AUTHZEN_USERPIP_FILE"
 	EnvAuthZenDecDetail           string = "AUTHZEN_RESPONSE_DETAIL"
 	EnvBundleDir                  string = "AUTHZEN_BUNDLE_DIR"
+	EnvPolicyModelFile            string = "HEXA_POLICY_MODEL_FILE"
+	EnvDefPimNamespace            string = "HEXA_POLICY_MODEL_NAMESPACE"
 	EndpointAuthzenSingleDecision string = "/access/v1/evaluation"
 	EndpointAuthzenQuery          string = "/access/v1/evaluations"
 	EndpointOpaBundles            string = "/bundles"

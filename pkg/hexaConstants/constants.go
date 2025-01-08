@@ -1,6 +1,6 @@
 package hexaConstants
 
 const (
-	HexaOpaVersion  = "V0.70.3"
+	HexaOpaVersion  = "V1.0.0"
 	HexaRegoVersion = "0.8.2"
 )
