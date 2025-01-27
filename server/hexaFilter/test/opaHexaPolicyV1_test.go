@@ -46,7 +46,7 @@ func TestIdqlBasic(t *testing.T) {
 	inputStr := string(body)
 	fmt.Println("input = " + inputStr)
 
-	results := RunRego(t, body, dataV1Path)
+	results := RunRego(t, body, dataV1Path, nil)
 	if results == nil {
 		log.Fatalln("Received nil OPA results!")
 	}
@@ -86,7 +86,7 @@ func TestIdqlJwt(t *testing.T) {
 	inputStr := string(body)
 	fmt.Println("input = " + inputStr)
 
-	results := RunRego(t, body, dataV1Path)
+	results := RunRego(t, body, dataV1Path, nil)
 	if results == nil {
 		log.Fatalln("Received nil OPA results!")
 	}
@@ -120,7 +120,7 @@ func TestIdqlIp(t *testing.T) {
 	inputStr := string(body)
 	fmt.Println("input = " + inputStr)
 
-	results := RunRego(t, body, dataV1Path)
+	results := RunRego(t, body, dataV1Path, nil)
 	if results == nil {
 		log.Fatalln("Received nil OPA results!")
 	}
@@ -166,7 +166,7 @@ func TestIdqlIpActions(t *testing.T) {
 	inputStr := string(body)
 	fmt.Println("input = " + inputStr)
 
-	results := RunRego(t, body, dataV1Path)
+	results := RunRego(t, body, dataV1Path, nil)
 	if results == nil {
 		log.Fatalln("Received nil OPA results!")
 	}
@@ -194,7 +194,7 @@ func TestIdqlIpActions(t *testing.T) {
 	inputStr = string(body)
 	fmt.Println("input = " + inputStr)
 
-	results = RunRego(t, body, dataV1Path)
+	results = RunRego(t, body, dataV1Path, nil)
 	if results == nil {
 		log.Fatalln("Received nil OPA results!")
 	}
@@ -221,7 +221,7 @@ func TestIdqlIpActions(t *testing.T) {
 	inputStr = string(body)
 	fmt.Println("input = " + inputStr)
 
-	results = RunRego(t, body, dataV1Path)
+	results = RunRego(t, body, dataV1Path, nil)
 	if results == nil {
 		log.Fatalln("Received nil OPA results!")
 	}
@@ -258,7 +258,7 @@ func TestIdqlMember(t *testing.T) {
 	inputStr := string(body)
 	fmt.Println("input = " + inputStr)
 
-	results := RunRego(t, body, dataV1Path)
+	results := RunRego(t, body, dataV1Path, nil)
 	if results == nil {
 		log.Fatalln("Received nil OPA results!")
 	}
@@ -297,7 +297,7 @@ func TestIdqlDenyRule(t *testing.T) {
 	inputStr := string(body)
 	fmt.Println("input = " + inputStr)
 
-	results := RunRego(t, body, dataV1Path)
+	results := RunRego(t, body, dataV1Path, nil)
 	if results == nil {
 		log.Fatalln("Received nil OPA results!")
 	}
@@ -339,7 +339,7 @@ func TestIdqlDenyAction(t *testing.T) {
 	inputStr := string(body)
 	fmt.Println("input = " + inputStr)
 
-	results := RunRego(t, body, dataV1Path)
+	results := RunRego(t, body, dataV1Path, nil)
 	if results == nil {
 		log.Fatalln("Received nil OPA results!")
 	}
@@ -380,7 +380,7 @@ func TestIdqlRole(t *testing.T) {
 	inputStr := string(body)
 	fmt.Println("input = " + inputStr)
 
-	results := RunRego(t, body, dataV1Path)
+	results := RunRego(t, body, dataV1Path, nil)
 	if results == nil {
 		log.Fatalln("Received nil OPA results!")
 	}
@@ -395,15 +395,114 @@ func TestIdqlRole(t *testing.T) {
 	utils.StopServer(t, server)
 }
 
-func RunRego(t *testing.T, inputByte []byte, dataPath string) *decisionsupportproviders.HexaOpaResult {
-	t.Helper()
+const EntityPolicyTest = `{
+  "policies": [
+    {
+      "meta": {
+        "policyId": "TestEntityEquals",
+        "version": "0.7",
+        "date": "2021-08-01 21:32:44 UTC",
+        "description": "Access enabling a specific customer"
+      },
+      "subjects": [
+        "Customer:alicebob"
+      ],
+      "object": "CanaryProfileService"
+    },
+    {
+      "meta": {
+        "policyId": "TestEntityIs",
+        "version": "0.7",
+        "date": "2021-08-01 21:32:44 UTC",
+        "description": "access enabling anyone who is a customer"
+      },
+      "subjects": [
+        "Customer:"
+      ],
+      "object": "CanaryProfileService"
+    }
+]}`
 
-	dataBytes, err := os.ReadFile(dataPath)
+func TestSubjectEntity(t *testing.T) {
+	key := "sercrethatmaycontainch@r$32chars!"
+	server := utils.SetUpMockServer(key, "", false, t)
+
+	client := &http.Client{Timeout: time.Minute * 2}
+
+	fmt.Println("Running Positive Entity Tests")
+	toknstr, err := utils.GenerateBearerToken(key, "Customer:alicebob", time.Now().Add(time.Minute*1))
 	if err != nil {
-		assert.Fail(t, "error reading data file: "+err.Error())
+		log.Fatalln(err)
+	}
+	authz := "Bearer " + toknstr
+	req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s/testpath?a=b&c=d", server.Addr), nil)
+	if err != nil {
+		assert.Error(t, err)
+	}
+	req.Header.Set("Authorization", authz)
+	resp, err := client.Do(req)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	inputStr := string(body)
+	fmt.Println("input = " + inputStr)
+
+	results := RunRego(t, body, dataV1Path, []byte(EntityPolicyTest))
+	if results == nil {
+		log.Fatalln("Received nil OPA results!")
 	}
 
-	bundleDir := bundleTestSupport.InitTestBundlesDir(dataBytes)
+	assert.GreaterOrEqual(t, "0.8.4", results.HexaRegoVersion, "Must be 0.8.4 or greater")
+
+	allowSet, _ := ProcessResults(t, results)
+	assert.True(t, len(allowSet) == 2, "confirm 2 matches")
+	assert.Contains(t, allowSet, "TestEntityEquals")
+	assert.Contains(t, allowSet, "TestEntityIs")
+
+	fmt.Println("Running Negative Entity Tests")
+
+	toknstr, err = utils.GenerateBearerToken(key, "Employee:alicebob", time.Now().Add(time.Minute*1))
+	if err != nil {
+		log.Fatalln(err)
+	}
+	authz = "Bearer " + toknstr
+	req, err = http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s/testpath?a=b&c=d", server.Addr), nil)
+	if err != nil {
+		assert.Error(t, err)
+	}
+	req.Header.Set("Authorization", authz)
+	resp, err = client.Do(req)
+	if err != nil {
+		log.Fatalln(err)
+	}
+	body, _ = io.ReadAll(resp.Body)
+	inputStr = string(body)
+	fmt.Println("input = " + inputStr)
+
+	results = RunRego(t, body, dataV1Path, []byte(EntityPolicyTest))
+	if results == nil {
+		log.Fatalln("Received nil OPA results!")
+	}
+
+	allowSet, _ = ProcessResults(t, results)
+	assert.Equal(t, 0, len(allowSet), "confirm 0 matches")
+	assert.Equal(t, 2, results.PoliciesEvaluated, "Should be 2 policies evaluated")
+	utils.StopServer(t, server)
+}
+
+func RunRego(t *testing.T, inputByte []byte, dataPath string, policyBytes []byte) *decisionsupportproviders.HexaOpaResult {
+	t.Helper()
+
+	if policyBytes == nil {
+		dataBytes, err := os.ReadFile(dataPath)
+		if err != nil {
+			assert.Fail(t, "error reading data file: "+err.Error())
+		}
+		policyBytes = dataBytes
+	}
+
+	bundleDir := bundleTestSupport.InitTestBundlesDir(policyBytes)
 	defer func(path string) {
 		err := os.RemoveAll(path)
 		if err != nil {
@@ -411,7 +510,10 @@ func RunRego(t *testing.T, inputByte []byte, dataPath string) *decisionsupportpr
 		}
 	}(bundleDir)
 
-	regoHandler, _ := opaHandler.NewRegoHandlerWithValidation(bundleDir, "", "")
+	regoHandler, err := opaHandler.NewRegoHandlerWithValidation(bundleDir, "", "")
+	if err != nil {
+		assert.Fail(t, "Failed to create rego handler")
+	}
 
 	var input infoModel.AzInfo
 	err = json.Unmarshal(inputByte, &input)
