@@ -25,7 +25,8 @@
       ],
       "actions": [
         "http:GET:/users/*"
-      ]
+      ],
+      "object": "todo"
     },
     {
       "meta": {
@@ -52,7 +53,8 @@
       ],
       "actions": [
         "http:GET:/todos"
-      ]
+      ],
+      "object": "todo"
     },
     {
       "meta": {
@@ -81,7 +83,8 @@
       ],
       "actions": [
         "http:POST:/todos"
-      ]
+      ],
+      "object": "todo"
     },
     {
       "meta": {
@@ -108,15 +111,13 @@
         "policyId": "PutTodoGateway"
       },
       "subjects": [
-        "anyAuthenticated"
+        "role:evil_genius",
+        "role:editor"
       ],
       "actions": [
         "http:PUT:/todos/*"
       ],
-      "condition": {
-        "rule": "subject.roles co \"evil_genius\" or (subject.roles co \"editor\" and resource.properties.ownerID eq subject.claims.email)",
-        "action": "allow"
-      }
+      "object": "todo"
     },
     {
       "meta": {
@@ -143,15 +144,13 @@
         "policyId": "DeleteTodoGateway"
       },
       "subjects": [
-        "anyAuthenticated"
+        "role:admin",
+        "role:editor"
       ],
       "actions": [
-        "http:DELETE/todos/*"
+        "http:DELETE:/todos/*"
       ],
-      "condition": {
-        "rule": "subject.roles co \"admin\" or (subject.roles co \"editor\" and resource.properties.ownerID eq subject.claims.email)",
-        "action": "allow"
-      }
+      "object": "todo"
     }
   ]
 }

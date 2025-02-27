@@ -75,10 +75,10 @@ func TestHandleQueryEvaluation(t *testing.T) {
 	assert.NotNil(t, resp.Evaluations)
 	assert.Nil(t, err)
 	assert.Equal(t, http.StatusOK, stat, "Request processed ok")
-	assert.Len(t, *resp.Evaluations, 2)
+	assert.Len(t, resp.Evaluations, 2)
 
-	assert.True(t, (*resp.Evaluations)[0].Decision, "Should be allowed")
-	assert.False(t, (*resp.Evaluations)[1].Decision, "Should not be allowed")
+	assert.True(t, (resp.Evaluations)[0].Decision, "Should be allowed")
+	assert.False(t, (resp.Evaluations)[1].Decision, "Should not be allowed")
 }
 
 func TestHealthCheck(t *testing.T) {
@@ -144,7 +144,7 @@ func runAuthZenSet(t *testing.T, name string, file string, decisionHandler *Deci
 			assert.NoError(t, err)
 			assert.Equal(t, http.StatusOK, status, "Request processed ok")
 			assert.NotNil(t, resp)
-			results := *resp.Evaluations
+			results := resp.Evaluations
 			for k, result := range test.Expected {
 				assert.Equal(t, result.Decision, results[k].Decision, "Decision should match")
 			}
@@ -177,7 +177,7 @@ func TestAuthZen(t *testing.T) {
 	decisionHandler, _ := NewDecisionHandler()
 
 	for _, test := range tests {
-		fmt.Printf(fmt.Sprintf("Running tests for: %s", test.Name))
+		fmt.Println(fmt.Sprintf("Running tests for: %s", test.Name))
 		runAuthZenSet(t, test.Name, test.File, decisionHandler)
 	}
 }

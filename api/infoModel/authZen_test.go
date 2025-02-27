@@ -294,7 +294,7 @@ func TestEvalResponseQuery(t *testing.T) {
 
 	assert.NotNil(t, resp.Evaluations, "Evaluations should NOT be nil")
 
-	evaluations := *resp.Evaluations
+	evaluations := resp.Evaluations
 
 	assert.Len(t, evaluations, 3, "should be 3 evaluation responses")
 	decision := evaluations[1]

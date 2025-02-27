@@ -310,5 +310,5 @@ type DecisionResponse struct {
 }
 
 type EvaluationsResponse struct {
-	Evaluations *[]DecisionResponse `json:"evaluations,omitempty"`
+	Evaluations []DecisionResponse `json:"evaluations,omitempty"`
 }

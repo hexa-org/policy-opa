@@ -79,7 +79,7 @@ func TestEvaluate(t *testing.T) {
 				if err.Error() != test.ErrorTest {
 					t.Errorf("Unexpected test error %v", err)
 				}
-				fmt.Printf("Received expected error: " + test.ErrorTest)
+				fmt.Println("Received expected error: " + test.ErrorTest)
 			}
 			assert.Equal(t, test.Result, res, "Evaluation match confirmation")
 

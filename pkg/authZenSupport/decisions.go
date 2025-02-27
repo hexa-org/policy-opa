@@ -20,6 +20,7 @@ import (
 	"github.com/hexa-org/policy-opa/pkg/compressionsupport"
 	"github.com/hexa-org/policy-opa/pkg/decisionsupportproviders"
 	"github.com/hexa-org/policy-opa/server/opaHandler"
+	"golang.org/x/exp/slices"
 )
 
 const (
@@ -124,8 +125,21 @@ func (d *DecisionHandler) createInputObjectSimple(authRequest infoModel.Evaluati
 
 	var actions []string
 
+	cMethod := ""
+	path := ""
+	protocol := ""
+
 	if authRequest.Action != nil {
-		actions = []string{authRequest.Action.Name}
+		cMethod = strings.ToUpper(authRequest.Action.Name)
+		if slices.Contains([]string{"GET", "POST", "PUT", "PATCH", "DELETE"}, strings.ToUpper(cMethod)) {
+			protocol = "http"
+			if strings.EqualFold(authRequest.Resource.Type, "route") {
+				path = authRequest.Resource.Id
+			}
+		} else {
+			cMethod = ""
+			actions = []string{authRequest.Action.Name}
+		}
 	}
 
 	var reqParams opaTools.ReqParams
@@ -133,6 +147,9 @@ func (d *DecisionHandler) createInputObjectSimple(authRequest infoModel.Evaluati
 	reqParams = opaTools.ReqParams{
 		ActionUris:  actions,
 		ResourceIds: *resources,
+		Protocol:    protocol,
+		Method:      cMethod,
+		Path:        path,
 	}
 
 	var resource infoModel.ResourceInfo
@@ -225,6 +242,6 @@ func (d *DecisionHandler) ProcessQueryDecision(query infoModel.QueryRequest, _ *
 		decisionResponses[i] = d.convertResult(result, evalErr)
 	}
 	return &infoModel.EvaluationsResponse{
-		Evaluations: &decisionResponses,
+		Evaluations: decisionResponses,
 	}, nil, http.StatusOK
 }
