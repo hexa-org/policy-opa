@@ -453,7 +453,7 @@ func TestSubjectEntity(t *testing.T) {
 		log.Fatalln("Received nil OPA results!")
 	}
 
-	assert.GreaterOrEqual(t, "0.8.4", results.HexaRegoVersion, "Must be 0.8.4 or greater")
+	assert.Equal(t, "0.8.5", results.HexaRegoVersion, "Must be 0.8.5")
 
 	allowSet, _ := ProcessResults(t, results)
 	assert.True(t, len(allowSet) == 2, "confirm 2 matches")
