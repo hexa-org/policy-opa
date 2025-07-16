@@ -296,3 +296,72 @@ func TestAuthZen_BadPolicy(t *testing.T) {
 	assert.Nil(t, handler, "Should be nil due to error")
 
 }
+
+func testBundleData() []byte {
+	_, file, _, _ := runtime.Caller(0)
+	dataFile := filepath.Join(file, "../../../deployments/authZen/data.json")
+	dataBytes, _ := os.ReadFile(dataFile)
+	return dataBytes
+}
+
+func testUserData() []byte {
+	_, file, _, _ := runtime.Caller(0)
+	userFile := filepath.Join(file, "../../../deployments/authZen/users.json")
+	userBytes, _ := os.ReadFile(userFile)
+	return userBytes
+}
+
+func TestHandleEvaluationOnDemand(t *testing.T) {
+	decisionHandler, err := NewDecisionHandlerOnDemand(testBundleData(), testUserData())
+	assert.NoError(t, err)
+
+	body := infoModel.EvaluationItem{
+		Subject: &infoModel.SubjectInfo{Id: "CiRmZDM2MTRkMy1jMzlhLTQ3ODEtYjdiZC04Yjk2ZjVhNTEwMGQSBWxvY2Fs"},
+		Action:  &infoModel.ActionInfo{Name: "can_read_todos"},
+	}
+
+	resp, err, stat := decisionHandler.ProcessDecision(body)
+	assert.Equal(t, http.StatusOK, stat, "Request processed ok")
+	assert.Nil(t, err)
+	assert.True(t, resp.Decision, "Decision is true")
+
+	resp, err, stat = decisionHandler.ProcessDecision(infoModel.EvaluationItem{})
+	assert.Nil(t, err)
+	assert.False(t, resp.Decision)
+	assert.Equal(t, http.StatusOK, stat, "Request processed ok")
+}
+
+func TestHandleQueryEvaluationOnDemand(t *testing.T) {
+	decisionHandler, err := NewDecisionHandlerOnDemand(testBundleData(), testUserData())
+	assert.NoError(t, err)
+
+	items := []infoModel.EvaluationItem{
+		{
+			Action: &infoModel.ActionInfo{Name: "can_read_todos"},
+		},
+		{
+			Action: &infoModel.ActionInfo{Name: "can_update_todo"},
+		},
+	}
+	body := infoModel.QueryRequest{
+		EvaluationItem: &infoModel.EvaluationItem{
+			Subject: &infoModel.SubjectInfo{Id: "CiRmZDM2MTRkMy1jMzlhLTQ3ODEtYjdiZC04Yjk2ZjVhNTEwMGQSBWxvY2Fs"},
+			Resource: &infoModel.ResourceInfo{
+				Id: "todo",
+			},
+		},
+		Evaluations: &infoModel.EvaluationBlock{
+			Items: &items,
+		},
+	}
+
+	resp, err, stat := decisionHandler.ProcessQueryDecision(body, nil)
+	assert.NotNil(t, resp)
+	assert.NotNil(t, resp.Evaluations)
+	assert.Nil(t, err)
+	assert.Equal(t, http.StatusOK, stat, "Request processed ok")
+	assert.Len(t, resp.Evaluations, 2)
+
+	assert.True(t, (resp.Evaluations)[0].Decision, "Should be allowed")
+	assert.False(t, (resp.Evaluations)[1].Decision, "Should not be allowed")
+}
