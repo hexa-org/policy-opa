@@ -5,6 +5,7 @@ package authZenSupport
 import (
 	"bytes"
 	_ "embed"
+	"encoding/json"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -20,6 +21,7 @@ import (
 	"github.com/hexa-org/policy-opa/pkg/compressionsupport"
 	"github.com/hexa-org/policy-opa/pkg/decisionsupportproviders"
 	"github.com/hexa-org/policy-opa/server/opaHandler"
+	"github.com/open-policy-agent/opa/rego"
 	"golang.org/x/exp/slices"
 )
 
@@ -28,9 +30,16 @@ const (
 	ResultDetail = "detail"
 )
 
+type regoEngine interface {
+	HealthCheck() bool
+	ReloadRego() error
+	Evaluate(input infoModel.AzInfo) (rego.ResultSet, error)
+	ProcessResults(results rego.ResultSet) *decisionsupportproviders.HexaOpaResult
+}
+
 type DecisionHandler struct {
 	pip          *infoModel.UserRecs
-	regoHandler  *opaHandler.RegoHandler
+	regoHandler  regoEngine
 	resultDetail string
 }
 
@@ -94,6 +103,27 @@ func createInitialBundle(bundlePath string) {
 	gzip, _ := compressionsupport.UnGzip(bytes.NewReader(bundleBuffer.Bytes()))
 
 	_ = compressionsupport.UnTarToPath(bytes.NewReader(gzip), bundlePath)
+}
+
+// NewDecisionHandlerOnDemand generates an instance of DecisionHandler with a rego engine initialized with in-memory bundle.
+// Intended for use in wasm implementations.
+func NewDecisionHandlerOnDemand(data []byte, users []byte) (*DecisionHandler, error) {
+	handler, err := opaHandler.NewRegoHandlerInMem(data)
+	if err != nil {
+		return nil, err
+	}
+
+	var pip infoModel.UserRecs
+	err = json.Unmarshal(users, &pip)
+	if err != nil {
+		return nil, err
+	}
+
+	return &DecisionHandler{
+		pip:          &pip,
+		regoHandler:  handler,
+		resultDetail: ResultDetail,
+	}, nil
 }
 
 // ProcessUploadOpa causes the OPA engine to reload policy and rego instructions from the bundle directory (see config.EnvBundleDir).
