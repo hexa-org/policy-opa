@@ -25,6 +25,12 @@ import (
 	"golang.org/x/exp/slices"
 )
 
+//go:embed resources/data.json
+var authzenPolicyTODO []byte
+
+//go:embed resources/users.json
+var authzenUsersTODO []byte
+
 const (
 	ResultBrief  = "brief"
 	ResultDetail = "detail"
@@ -274,4 +280,8 @@ func (d *DecisionHandler) ProcessQueryDecision(query infoModel.QueryRequest, _ *
 	return &infoModel.EvaluationsResponse{
 		Evaluations: decisionResponses,
 	}, nil, http.StatusOK
+}
+
+func AuthenZenData() ([]byte, []byte) {
+	return authzenPolicyTODO, authzenUsersTODO
 }
