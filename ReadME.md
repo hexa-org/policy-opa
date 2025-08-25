@@ -25,15 +25,15 @@ As with `OPA`, `hexaOpa` may be deployed as a sidecar or in other deployment pat
 ## Building and Running Hexa OPA Locally
 
 Prerequisites:
-* [Go Lang 1.22](https://go.dev/doc/install)
+* [Go Lang 1.23](https://go.dev/doc/install)
 * [Docker](https://docs.docker.com/engine/install/)
 * [Git client](https://github.com/git-guides/install-git#)
 * Hexa CLI Tool
 
 With the above pre-requisites installed, clone the repository, change directory into the project and run the build.sh shell script. This will build a local docker image called hexaopa
 ```shell
-$ git clone https://hexa-org/policy-mapper
-$ cd policy-mapper
+$ git clone https://hexa-org/policy-opa
+$ cd policy-opa
 $ sh ./build.sh
 ```
 
