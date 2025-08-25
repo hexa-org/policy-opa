@@ -8,9 +8,7 @@ import (
 
 	infoModel2 "github.com/hexa-org/policy-opa/api/infoModel"
 	opaTools "github.com/hexa-org/policy-opa/client/hexaOpaClient"
-	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/config"
 	"github.com/hexa-org/policy-opa/cmd/hexaAuthZen/userHandler"
-	"github.com/hexa-org/policy-opa/pkg/bundleTestSupport"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -19,12 +17,8 @@ func TestOpaHandlerInMem(t *testing.T) {
 	userFile := filepath.Join(file, "../../../deployments/authZen/users.json")
 	dataFile := filepath.Join(file, "../../../deployments/authZen/data.json")
 	dataBytes, _ := os.ReadFile(dataFile)
-	bundleDir := bundleTestSupport.InitTestBundlesDir(dataBytes)
-	defer bundleTestSupport.Cleanup(bundleDir)
-
 	pip := userHandler.NewUserPIP(userFile)
 
-	_ = os.Setenv(config.EnvBundleDir, bundleDir)
 	// Testing with Beth
 	user := pip.GetUser("CiRmZDM2MTRkMy1jMzlhLTQ3ODEtYjdiZC04Yjk2ZjVhNTEwMGQSBWxvY2Fs")
 	assert.NotNil(t, user, "Get User")
