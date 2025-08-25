@@ -100,13 +100,13 @@ func (h *RegoHandlerInMem) ProcessResults(results rego.ResultSet) *decisionsuppo
 	}
 	resBytes, err := json.Marshal(results[0].Expressions[0].Value)
 	if err != nil {
-		log.Printf("error converting result: %s" + err.Error())
+		log.Printf("error converting result: %s", err.Error())
 		return nil
 	}
 
 	opaResult := decisionsupportproviders.HexaOpaResult{}
 	if err := json.Unmarshal(resBytes, &opaResult); err != nil {
-		log.Printf("error converting result: %s" + err.Error())
+		log.Printf("error converting result: %s", err.Error())
 		return nil
 	}
 
