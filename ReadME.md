@@ -25,7 +25,7 @@ As with `OPA`, `hexaOpa` may be deployed as a sidecar or in other deployment pat
 ## Building and Running Hexa OPA Locally
 
 Prerequisites:
-* [Go Lang 1.23](https://go.dev/doc/install)
+* [Go Lang 1.24.6](https://go.dev/doc/install)
 * [Docker](https://docs.docker.com/engine/install/)
 * [Git client](https://github.com/git-guides/install-git#)
 * Hexa CLI Tool
