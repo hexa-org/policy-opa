@@ -12,6 +12,7 @@ import (
 	"github.com/hexa-org/policy-opa/api/infoModel"
 	"github.com/hexa-org/policy-opa/pkg/bundleTestSupport"
 	"github.com/hexa-org/policy-opa/pkg/decisionsupportproviders"
+	"github.com/hexa-org/policy-opa/pkg/hexaConstants"
 	"github.com/hexa-org/policy-opa/server/opaHandler"
 	"github.com/hexa-org/policy-opa/tests/utils"
 	"github.com/stretchr/testify/assert"
@@ -453,7 +454,7 @@ func TestSubjectEntity(t *testing.T) {
 		log.Fatalln("Received nil OPA results!")
 	}
 
-	assert.Equal(t, "0.8.5", results.HexaRegoVersion, "Must be 0.8.5")
+	assert.Equal(t, hexaConstants.HexaRegoVersion, results.HexaRegoVersion, "Must be "+hexaConstants.HexaRegoVersion)
 
 	allowSet, _ := ProcessResults(t, results)
 	assert.True(t, len(allowSet) == 2, "confirm 2 matches")
