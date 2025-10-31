@@ -113,7 +113,7 @@ func createInitialBundle(bundlePath string) {
 
 // NewDecisionHandlerOnDemand generates an instance of DecisionHandler with a rego engine initialized with in-memory bundle.
 // Intended for use in wasm implementations.
-func NewDecisionHandlerOnDemand(data []byte, users []byte) (*DecisionHandler, error) {
+func NewDecisionHandlerOnDemand(data, users, resultMode []byte) (*DecisionHandler, error) {
 	handler, err := opaHandler.NewRegoHandlerInMem(data)
 	if err != nil {
 		return nil, err
@@ -125,10 +125,14 @@ func NewDecisionHandlerOnDemand(data []byte, users []byte) (*DecisionHandler, er
 		return nil, err
 	}
 
+	rMode := ResultBrief
+	if resultMode != nil && string(resultMode) == ResultDetail {
+		rMode = ResultDetail
+	}
 	return &DecisionHandler{
 		pip:          &pip,
 		regoHandler:  handler,
-		resultDetail: ResultDetail,
+		resultDetail: rMode,
 	}, nil
 }
 
@@ -212,7 +216,7 @@ request information and calls the HexaOPA decision engine and parses the results
 */
 func (d *DecisionHandler) ProcessDecision(authRequest infoModel.EvaluationItem) (*infoModel.DecisionResponse, error, int) {
 
-	input := d.createInputObjectSimple(authRequest, &[]string{"todo"})
+	input := d.createInputObjectSimple(authRequest, &[]string{"todo", "user"})
 
 	results, err := d.regoHandler.Evaluate(input)
 
@@ -221,20 +225,21 @@ func (d *DecisionHandler) ProcessDecision(authRequest infoModel.EvaluationItem) 
 	}
 	result := d.regoHandler.ProcessResults(results)
 
-	// process response
-	if result.Allow == true {
-		return &infoModel.DecisionResponse{Decision: true}, nil, 200
+	var response infoModel.DecisionResponse
+	if d.resultDetail == ResultDetail {
+		context := getContextInfo(result)
+		response.Context = &context
 	}
-	return &infoModel.DecisionResponse{Decision: false}, nil, 200
+	response.Decision = result.Allow
+
+	return &response, nil, 200
 }
 
-func (d *DecisionHandler) convertResult(result *decisionsupportproviders.HexaOpaResult, evalErr error) infoModel.DecisionResponse {
-
+func getContextInfo(result *decisionsupportproviders.HexaOpaResult) infoModel.ContextInfo {
 	context := infoModel.ContextInfo{}
 	now := time.Now()
 	context["time"] = now
 
-	allow := false
 	if result != nil {
 		context["PoliciesEvaluated"] = result.PoliciesEvaluated
 		context["HexaRegoVersion"] = result.HexaRegoVersion
@@ -246,6 +251,17 @@ func (d *DecisionHandler) convertResult(result *decisionsupportproviders.HexaOpa
 		if result.Scopes != nil {
 			context["Scopes"] = result.Scopes
 		}
+	}
+
+	return context
+}
+
+func (d *DecisionHandler) convertResult(result *decisionsupportproviders.HexaOpaResult, evalErr error) infoModel.DecisionResponse {
+
+	context := getContextInfo(result)
+
+	allow := false
+	if result != nil {
 		allow = result.Allow
 	}
 

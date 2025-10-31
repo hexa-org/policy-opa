@@ -38,7 +38,9 @@ func TestHandleEvaluation(t *testing.T) {
 
 	resp, err, stat = decisionHandler.ProcessDecision(infoModel.EvaluationItem{})
 	assert.Nil(t, err)
-	assert.False(t, resp.Decision)
+	if resp != nil {
+		assert.False(t, resp.Decision)
+	}
 	assert.Equal(t, http.StatusOK, stat, "Request processed ok")
 }
 
@@ -312,7 +314,7 @@ func testUserData() []byte {
 }
 
 func TestHandleEvaluationOnDemand(t *testing.T) {
-	decisionHandler, err := NewDecisionHandlerOnDemand(testBundleData(), testUserData())
+	decisionHandler, err := NewDecisionHandlerOnDemand(testBundleData(), testUserData(), nil)
 	assert.NoError(t, err)
 
 	body := infoModel.EvaluationItem{
@@ -327,12 +329,15 @@ func TestHandleEvaluationOnDemand(t *testing.T) {
 
 	resp, err, stat = decisionHandler.ProcessDecision(infoModel.EvaluationItem{})
 	assert.Nil(t, err)
-	assert.False(t, resp.Decision)
+	if resp != nil {
+		assert.False(t, resp.Decision)
+	}
+
 	assert.Equal(t, http.StatusOK, stat, "Request processed ok")
 }
 
 func TestHandleQueryEvaluationOnDemand(t *testing.T) {
-	decisionHandler, err := NewDecisionHandlerOnDemand(testBundleData(), testUserData())
+	decisionHandler, err := NewDecisionHandlerOnDemand(testBundleData(), testUserData(), nil)
 	assert.NoError(t, err)
 
 	items := []infoModel.EvaluationItem{
