@@ -51,41 +51,27 @@ func (h *RegoHandler) HealthCheck() bool {
 func (h *RegoHandler) ValidateBundle() error {
 	dataFile := filepath.Join(h.bundleDir, "bundle", "data.json")
 
-	val, err := hexapolicysupport.ParsePolicyFile(dataFile)
+	pols, err := hexapolicysupport.ParsePolicyFile(dataFile)
 	if err != nil {
 		return err
 	}
-	if val == nil {
+
+	policyBytes, _ := os.ReadFile(dataFile)
+
+	if policyBytes == nil || pols == nil || len(pols) == 0 {
 		return errors.New("no parseable policy")
 	}
-	if len(val) == 0 {
-		return errors.New("no policies found")
-	}
-	var errMap map[string][]error
+
+	var valErrs []pimValidate.ValidationError
 	if h.validator != nil {
-		hasValidationErrors := false
-		for i, policy := range val {
-			errorSet := h.validator.ValidatePolicy(policy)
-			if len(errorSet) > 0 {
-				hasValidationErrors = true
-				errId := fmt.Sprintf("Policy-%d", i)
-				if policy.Meta.PolicyId != nil {
-					errId = *policy.Meta.PolicyId
-				}
-				errMap[errId] = errorSet
-			}
-		}
-		if hasValidationErrors {
+		valErrs = h.validator.ValidatePolicyByAst(policyBytes)
+
+		if valErrs != nil && len(valErrs) > 0 {
 			sb := strings.Builder{}
-			sb.WriteString("Policy validation failed:\n")
-			for id, errs := range errMap {
-				title := fmt.Sprintf("%s\n", id)
-				sb.WriteString(title)
-				sb.WriteString(strings.Repeat("-", len(title)-1) + "\n")
-				for _, err := range errs {
-					sb.WriteString(err.Error())
-					sb.WriteString("\n")
-				}
+			sb.WriteString("Error:\n")
+			for _, valErr := range valErrs {
+				sb.WriteString(valErr.String())
+				sb.WriteString("\n")
 			}
 			log.Error(sb.String())
 			return errors.New(sb.String())
